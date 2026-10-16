@@ -108,10 +108,10 @@ WW.Engine = (canvas) => {
 
   /* ---------------- world build ---------------- */
   const THEMES = {
-    warm:  { wall: '#f3e2cd' },
-    flour: { wall: '#efe3d0' },
-    butter:{ wall: '#f4e6c8' },
-    milk:  { wall: '#e9eef2' },
+    warm:  { wall: '#f6ead6' },
+    flour: { wall: '#f2e6d2' },
+    butter:{ wall: '#f6e8ca' },
+    milk:  { wall: '#eaf0f4' },
     night: { wall: '#39325a' },
   };
 
@@ -144,18 +144,18 @@ WW.Engine = (canvas) => {
     const L = cfg.world.length;
     const rows = cfg.rows || [];
 
-    /* far wall — strips tile horizontally */
-    repeatStrip('bg-wall', 640, 560, 470, -1000, L + 1000, -6, 120, gFar);
+    /* far wall — strips tile horizontally, full screen height */
+    repeatStrip('bg-wall', 640, 560, 540, -1000, L + 1000, -6, 120, gFar);
     if (rows.includes('window')) {
-      const e = WW.tex('bg-window', 480, 420, () => {});
-      for (let x = 300; x < L; x += 1150) sprite(e, 190, 166, x, 285, -5.5, gFar);
+      const e = WW.tex('bg-window', 300, 150, () => {});
+      for (let x = 300; x < L; x += 1150) sprite(e, 250, 125, x, 330, -5.5, gFar);
     }
     /* mid shelves: open shelves on the wall above the counter */
-    repeatStrip('bg-props', 640, 300, 205, -800, L + 800, -4, 258, gMid);
+    repeatStrip('bg-props', 640, 300, 190, -800, L + 800, -4, 240, gMid);
     /* deco minis standing on the counter's back edge */
-    repeatStrip('props-mini', 560, 120, 62, -600, L + 600, -2.5, 124, gDeco);
-    /* the counter itself: tile top edge sits exactly at GROUND_Y */
-    repeatStrip('bg-counter', 640, 260, 260, -700, L + 700, -1.5, WW.Physics.GROUND_Y - 130, gWorld);
+    repeatStrip('props-mini', 560, 120, 56, -600, L + 600, -2.5, 118, gDeco);
+    /* the counter itself: tile top exactly at the ground line */
+    repeatStrip('bg-counter', 640, 360, 300, -700, L + 700, -1.5, WW.Physics.GROUND_Y - 150, gWorld);
 
     /* platforms — draw each with its own mini canvas */
     for (const p of cfg.world.platforms) {
@@ -214,7 +214,11 @@ WW.Engine = (canvas) => {
     charCanvas.width = 120; charCanvas.height = 148;
     charTex = new THREE.CanvasTexture(charCanvas);
     charTex.minFilter = THREE.LinearFilter;
-    charMesh = new THREE.Mesh(new THREE.PlaneGeometry(64, 79), new THREE.MeshBasicMaterial({ map: charTex, transparent: true, depthWrite: false }));
+    charMesh = new THREE.Mesh(new THREE.PlaneGeometry(88, 108), new THREE.MeshBasicMaterial({ map: charTex, transparent: true, depthWrite: false }));
+    /* painter draws the feet at canvas y≈142; centre is 74 → feet sit
+     * (142−74)/148 of the plane below centre ≈ 50u. Lift the mesh so the
+     * feet land exactly on the holder origin (the physics ground line). */
+    charMesh.position.y = 50;
     charHolder = new THREE.Group();
     charHolder.add(charMesh);
     gWorld.add(charHolder);
