@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="description" content="Whimsy Wick — a cozy magical platformer set in a sleeping kitchen. Guide Ghee, gather sparks, and light every wick." />
+<title>Whimsy Wick</title>
+<link rel="stylesheet" href="./css/main.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='18' r='11' fill='%23ffd66b'/><circle cx='16' cy='16' r='9' fill='%23ffedb0'/></svg>" />
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- =================== HUD (during play) =================== -->
+<div id="hud" class="hidden">
+  <div class="hud-left">
+    <span id="hud-level" class="hud-name">The Sleepy Counter</span>
+    <span id="hud-progress"></span>
+  </div>
+  <div class="hud-right">
+    <span class="hud-pill" id="hud-sparks">✦ 0</span>
+    <span class="hud-pill hud-coin hidden" id="hud-coins">● 0</span>
+    <span class="hud-pill hud-gem hidden" id="hud-gems">◆ 0</span>
+    <span class="hud-pill hud-score hidden" id="hud-score">0</span>
+    <span class="hud-pill hud-dist hidden" id="hud-dist">0 m</span>
+    <span class="hud-pill hidden" id="hud-time">0:00</span>
+    <button id="btn-pause" class="hud-btn" aria-label="Pause">II</button>
+  </div>
+</div>
+
+<!-- gesture hint (first run of each mode, dismissible) -->
+<div id="gesture-hint" class="ui-block hidden">
+  <div class="hint-card">
+    <span>Tap to jump · Drag to move</span>
+    <button id="hint-dismiss">Got it</button>
+  </div>
+</div>
+
+<!-- tutorial card -->
+<div id="tutorial" class="ui-block hidden">
+  <div class="bubble">
+    <b id="tut-title">Wake up, Ghee!</b>
+    <span id="tut-text">Drag right to tiptoe along the counter.</span>
+    <span id="tut-step" class="tut-step">1 / 4</span>
+  </div>
+</div>
+
+<!-- hazard hint toast -->
+<div id="hint-toast" class="ui-block hidden"><div class="hint-card" id="hint-toast-text"></div></div>
+
+<!-- pause button pause pressed w pause; menu screens -->
+<div id="screens">
+  <!-- ============ TITLE ============ -->
+  <section class="screen" id="screen-title">
+    <div class="title-card">
+      <canvas id="title-wordmark" width="640" height="140"></canvas>
+      <p class="tagline">A tiny kitchen spirit. A scattered magic. One night to relight it.</p>
+      <div class="menu-stack">
+        <button class="btn btn-primary" id="btn-story">Story Mode</button>
+        <button class="btn btn-primary" id="btn-endless">Endless Challenge</button>
+        <div class="menu-row">
+          <button class="btn btn-soft" id="btn-chars">Characters</button>
+          <button class="btn btn-soft" id="btn-howto">How to Play</button>
+          <button class="btn btn-soft" id="btn-settings">Settings</button>
+        </div>
+      </div>
+      <div class="title-ghee"><canvas id="title-ghee" width="150" height="190"></canvas></div>
+      <div class="startng-card ui-block" id="startng-card" hidden>
+        <img id="player-face" alt="" />
+        <div class="sc-meta"><b id="player-name">Guest</b><span id="player-account">Not signed in</span></div>
+        <button id="player-sign-in" hidden>Sign in</button>
+      </div>
+      <p class="foot">Controls: drag or arrow keys · tap or space to hop</p>
+    </div>
+  </section>
+
+  <!-- ============ STORY MAP ============ -->
+  <section class="screen hidden" id="screen-story">
+    <h2 class="screen-title">Story Mode</h2>
+    <p class="screen-sub">Five counters, five unlit wicks.</p>
+    <div id="story-list" class="story-list"></div>
+    <button class="btn btn-back" id="story-back">Back</button>
+  </section>
+
+  <!-- ============ CHARACTERS ============ -->
+  <section class="screen hidden" id="screen-chars">
+    <h2 class="screen-title">Who hops tonight?</h2>
+    <p class="screen-sub" id="char-sub">Pick a spirit — same hops, different hearts.</p>
+    <div id="char-grid" class="char-grid"></div>
+    <div class="menu-row">
+      <button class="btn btn-back" id="chars-back">Back</button>
+      <button class="btn btn-primary" id="chars-confirm">Play as <span id="chars-name">Ghee</span></button>
+    </div>
+  </section>
+
+  <!-- ============ HOW TO PLAY ============ -->
+  <section class="screen hidden" id="screen-howto">
+    <h2 class="screen-title">How to Play</h2>
+    <div class="howto-cols">
+      <div class="howto-box">
+        <h3>Move</h3>
+        <p><b>Keyboard:</b> ← → / A D to run · Space / W / ↑ to hop · Esc to pause</p>
+        <p><b>Touch:</b> drag left or right to move · tap to hop</p>
+      </div>
+      <div class="howto-box">
+        <h3>Collect</h3>
+        <p><b>✦ Sparks</b> light the way and build your score.</p>
+        <p><b>◆ Star gems</b> hide a little higher — worth a detour.</p>
+      </div>
+      <div class="howto-box">
+        <h3>Watch out</h3>
+        <div id="howto-hazards" class="howto-hazards"></div>
+        <ul class="howto-list">
+          <li><b>Flour:</b> puff — hop over it.</li>
+          <li><b>Rolling pins:</b> they patrol — time your run.</li>
+          <li><b>Butter &amp; milk:</b> slippery — steer gently, you can hop while sliding.</li>
+          <li><b>Jam:</b> sticky — it slows you down.</li>
+          <li><b>Little fans:</b> they blow you back — lean into the breeze.</li>
+        </ul>
+      </div>
+    </div>
+    <button class="btn btn-back" id="howto-back">Back</button>
+  </section>
+
+  <!-- ============ SETTINGS ============ -->
+  <section class="screen hidden" id="screen-settings">
+    <h2 class="screen-title">Settings</h2>
+    <div class="settings-card">
+      <h3>Audio</h3>
+      <label class="set-row">Music
+        <input type="range" id="set-music" min="0" max="100" value="70" />
+        <span id="set-music-val">70</span>
+      </label>
+      <label class="set-row">Sound effects
+        <input type="range" id="set-sfx" min="0" max="100" value="80" />
+        <span id="set-sfx-val">80</span>
+      </label>
+      <label class="set-row toggle-row">Mute everything
+        <span class="toggle"><input type="checkbox" id="set-mute" /><i></i></span>
+      </label>
+
+      <h3>Gameplay</h3>
+      <label class="set-row toggle-row">Gesture hints
+        <span class="toggle"><input type="checkbox" id="set-gestures" checked /><i></i></span>
+      </label>
+      <label class="set-row toggle-row">Reduced motion
+        <span class="toggle"><input type="checkbox" id="set-rm" /><i></i></span>
+      </label>
+      <div class="menu-row">
+        <button class="btn btn-soft" id="set-replay-tutorial">Replay tutorial</button>
+        <button class="btn btn-soft" id="set-reset">Reset all progress</button>
+      </div>
+      <div class="menu-row">
+        <button class="btn btn-back" id="settings-back">Back</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PAUSE ============ -->
+  <section class="screen overlay-screen hidden" id="screen-pause">
+    <div class="panel">
+      <h2>Paused</h2>
+      <div class="menu-stack">
+        <button class="btn btn-primary" id="pause-resume">Resume</button>
+        <button class="btn btn-soft" id="pause-restart">Restart</button>
+        <div class="menu-row">
+          <button class="btn btn-soft" id="pause-howto">How to Play</button>
+          <button class="btn btn-soft" id="pause-settings">Settings</button>
+        </div>
+        <button class="btn btn-back" id="pause-menu">Main menu</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LEVEL COMPLETE / STORY FAIL ============ -->
+  <section class="screen overlay-screen hidden" id="screen-result">
+    <div class="panel" id="result-panel">
+      <h2 id="result-title">Wick lit!</h2>
+      <p id="result-flavour" class="result-flavour"></p>
+      <div id="result-stats" class="result-stats"></div>
+      <div class="menu-stack">
+        <button class="btn btn-primary" id="result-primary">Next level</button>
+        <div class="menu-row">
+          <button class="btn btn-soft" id="result-replay">Replay level</button>
+          <button class="btn btn-back" id="result-menu">Main menu</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ENDING ============ -->
+  <section class="screen overlay-screen hidden" id="screen-ending">
+    <div class="panel ending-panel">
+      <h2>The kitchen glows again.</h2>
+      <p class="result-flavour">Every wick is lit. The recipes whisper thank-you as they finish themselves.
+        And somewhere between the tenth step and the last, Ghee learned the best magic of all:
+        a warm kitchen is really just a lot of little lights, kept alive.</p>
+      <canvas id="ending-art" width="360" height="240"></canvas>
+      <div class="menu-stack">
+        <button class="btn btn-primary" id="ending-menu">Back to the kitchen door</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>
