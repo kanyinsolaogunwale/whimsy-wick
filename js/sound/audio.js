@@ -1,9 +1,11 @@
 /**
  * Whimsy Wick — js/sound/audio.js
  * ---------------------------------------------------------------
- * Fully procedural cozy audio (original by construction, §14):
- *  • music: warm 6-bar pad loop + music-box bells, seamless (loop node)
- *  • sfx: one-shot synth cues per gameplay event
+ * Cozy audio:
+ *  • music: "Happy Lullaby (song17)" by cynicmusic (CC0, OpenGameArt) from
+ *    assets/song17.mp3, looped; falls back to the procedural pad + music-box
+ *    loop below if the file can't load (e.g. opened straight from file://)
+ *  • sfx: one-shot synth cues per gameplay event (procedural)
  *  • volumes: music / sfx / master mute, persisted by WW.persist
  * Browsers gate audio until a gesture: we resume on first tap/key.
  */
@@ -14,6 +16,8 @@ const WW = window.WW;
 WW.Audio = (() => {
   let ctx = null, master = null, musicGain = null, sfxGain = null;
   let musicTimer = null, running = false, loopBeats = null;
+  let trackLoad = null, trackSrc = null;
+  let wantMusic = false;     // music was asked for; start once the context wakes
   const st = { music: 0.7, sfx: 0.8, mute: false };
 
   const ready = () => {
@@ -39,10 +43,62 @@ WW.Audio = (() => {
   /** Unlock after a user gesture (docs /§14). */
   const unlock = () => {
     if (!ready()) return;
-    if (ctx.state === 'suspended') ctx.resume();
+    if (ctx.state === 'suspended') ctx.resume().then(() => { if (wantMusic) startMusic(); }).catch(() => {});
   };
 
-  /* ---------------- music (seamless loop) ---------------- */
+  /* Go quiet when the player leaves — tab hidden, window unfocused (app sent
+   * to the background / pane hidden), or page closed — and wake on return. */
+  let away = false;
+  const goAway = () => {
+    away = true;
+    if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {});
+  };
+  const comeBack = () => {
+    if (!away || document.hidden) return;
+    away = false;
+    if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
+  };
+  document.addEventListener('visibilitychange', () => (document.hidden ? goAway() : comeBack()));
+  addEventListener('blur', goAway);
+  addEventListener('focus', comeBack);
+  addEventListener('pagehide', () => { stopMusic(); goAway(); });
+
+  /* ---------------- music: CC0 track ---------------- */
+  const TRACK = { url: './assets/song17.mp3', level: 0.6 };
+
+  /** Fetch + decode once; resolves to an AudioBuffer, or null on failure. */
+  const loadTrack = () => {
+    if (!trackLoad) {
+      trackLoad = fetch(TRACK.url)
+        .then(r => r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.status)))
+        .then(ab => new Promise((res, rej) => ctx.decodeAudioData(ab, res, rej)))
+        .catch(() => null);
+    }
+    return trackLoad;
+  };
+
+  /** Loop points that skip the MP3's leading/trailing encoder silence, so
+   *  the loop doesn't hiccup. */
+  const loopBounds = (buf) => {
+    const d = buf.getChannelData(0), eps = 0.002;
+    let a = 0, b = d.length - 1;
+    while (a < b && Math.abs(d[a]) < eps) a++;
+    while (b > a && Math.abs(d[b]) < eps) b--;
+    return [a / buf.sampleRate, (b + 1) / buf.sampleRate];
+  };
+
+  const playTrack = (buf) => {
+    const src = ctx.createBufferSource(), g = ctx.createGain();
+    src.buffer = buf; src.loop = true;
+    [src.loopStart, src.loopEnd] = loopBounds(buf);
+    g.gain.setValueAtTime(0, ctx.currentTime);                     // gentle fade-in
+    g.gain.linearRampToValueAtTime(TRACK.level, ctx.currentTime + 1.2);
+    src.connect(g); g.connect(musicGain);
+    src.start(ctx.currentTime + 0.02, src.loopStart);
+    trackSrc = src;
+  };
+
+  /* ---------------- music: procedural fallback (seamless loop) ---------------- */
   const bpm = 84, beat = 60 / bpm;
 
   const note = (freq, when, dur, vol, type, dest, glide) => {
@@ -81,6 +137,12 @@ WW.Audio = (() => {
   const startMusic = () => {
     if (!ready() || running) return;
     running = true;
+    loadTrack().then((buf) => {
+      if (!running || trackSrc || musicTimer) return;   // stopped meanwhile / already playing
+      if (buf) playTrack(buf); else startSynthMusic();
+    });
+  };
+  const startSynthMusic = () => {
     let bar = 0;
     let next = ctx.currentTime + 0.08;
     const tick = () => {
@@ -92,6 +154,7 @@ WW.Audio = (() => {
   };
   const stopMusic = (duck = false) => {
     running = false;
+    if (trackSrc) { try { trackSrc.stop(); } catch { /* already stopped */ } trackSrc = null; }
     if (musicTimer) { clearInterval(musicTimer); musicTimer = null; }
     if (duck && ctx) { // brief fade for menus? keep simple: silence pads are short-lived anyway
       musicGain.gain.setTargetAtTime(0.12 * st.music, ctx.currentTime, 0.3);
@@ -160,8 +223,15 @@ WW.Audio = (() => {
     play(name, arg) { S[name] && S[name](arg); },
     set(name, v) { st[name] = v; applyVolumes(); },
     setMute(v) { st.mute = v; applyVolumes(); },
-    musicOn()  { if (ready() && ctx.state === 'running') startMusic(); },
-    musicOff() { stopMusic(); },
+    /* A context made before any tap (e.g. by a hover tick) starts suspended
+     * and resume() is async, so don't drop the request — start on wake. */
+    musicOn() {
+      if (!ready()) return;
+      wantMusic = true;
+      if (ctx.state === 'running') startMusic();
+      else ctx.resume().then(() => { if (wantMusic) startMusic(); }).catch(() => {});
+    },
+    musicOff() { wantMusic = false; stopMusic(); },
     duckMusic(on) { if (running && ctx) musicGain.gain.setTargetAtTime((on ? 0.10 : 0.5) * st.music, ctx.currentTime, 0.25); },
     get running() { return running; },
     dbgCtx() { return ctx; },

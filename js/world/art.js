@@ -223,20 +223,18 @@ WW.tex('bg-props', 640, 300, (c, w) => {
   fillText(c, '★', 402, 230, 2, '#fff3dd');
 });
 
-/** The counter the player walks on — tiles on top, cupboards below,
- *  filling the whole bottom of the screen like the prototype. */
+/** The counter the player walks on — one plain countertop slab on top,
+ *  cupboards below, filling the whole bottom of the screen. */
 WW.tex('bg-counter', 640, 360, (c, w, h) => {
-  // tile row (the walking surface)
-  c.fillStyle = '#efe0c8'; c.fillRect(0, 0, w, 54);
-  const tiles = ['#f7d1cf', '#d8ead0', '#e4def2', '#fce9cc'];
-  for (let i = 0; i * 64 < w; i++) {
-    c.fillStyle = tiles[i % 4];
-    rr(c, i * 64 + 5, 6, 54, 42, 8); c.fill();
-    c.strokeStyle = 'rgba(74,53,36,.22)'; c.lineWidth = 2.2;
-    rr(c, i * 64 + 5, 6, 54, 42, 8); c.stroke();
-    // tiny speckle
-    c.fillStyle = 'rgba(255,255,255,.5)';
-    c.beginPath(); c.arc(i * 64 + 18, 14, 3, 0, 7); c.fill();
+  // countertop slab (the walking surface) — continuous, no tiles
+  c.fillStyle = '#f3dcb6'; c.fillRect(0, 0, w, 54);
+  c.fillStyle = '#fbebd0'; c.fillRect(0, 0, w, 7);              // lit top edge
+  c.fillStyle = 'rgba(122,87,55,.55)'; c.fillRect(0, 7, w, 2);  // top-face crease
+  c.strokeStyle = 'rgba(122,87,55,.12)'; c.lineWidth = 2;       // soft grain
+  for (const y of [20, 33, 44]) {
+    c.beginPath(); c.moveTo(0, y);
+    for (let x = 0; x <= w; x += 80) c.quadraticCurveTo(x + 40, y + (x / 80 % 2 ? 2 : -2), x + 80, y);
+    c.stroke();
   }
   // wood lip under tiles
   c.fillStyle = '#c98a4b'; c.fillRect(0, 54, w, 10);
@@ -278,9 +276,10 @@ WW.tex('bg-counter', 640, 360, (c, w, h) => {
  * §2  Character painter — prototype silhouette, five personalities
  * ================================================================ */
 /* Based directly on the original #ghee: warm rounded body with a thin
- * darker border, small dot eyes, pink blush, tiny arms and feet, subtle
- * glow. Each spirit keeps that exact build, differing in colour,
- * accessory and idle rhythm (§3.2 — identical hitbox, no unfair edges). */
+ * darker border, pink blush, tiny arms and feet, subtle glow. Each spirit
+ * has its own silhouette (ch.shape), eyes (ch.eyes), mouth (ch.mouth),
+ * colour, accessory and idle rhythm — but all five share the same hitbox
+ * and movement, so the choice is purely cosmetic (§3.2). */
 
 /**
  * Paint a spirit into ctx, feet centred at (w/2, h-6).
@@ -313,29 +312,90 @@ WW.paintSpirit = (c, w, h, s) => {
   if (pose === 'lose') { bx = 1.1; by = 0.9; rot = -0.1; }
   if (pose === 'collect') { bx = 0.92; by = 1.1; }
 
-  const W = 46 * bx * sf, H = 40 * by * sf;
-  c.rotate(rot); c.translate(0, dy);
+  // ---- move set per tier: pricier spirits move with more flair ----
+  const tier = ch.anim || 0;
+  const dir = s.look === 'l' ? -1 : 1;
+  let spin = tier >= 3 ? (s.spin || 0) : 0;
+  let swingK = 1;                         // arm + leg swing amplitude
+  if (tier === 1) {                       // floaty: hover-sway, parachute fall
+    if (pose === 'run') { by = 1 + Math.sin(t * 8) * 0.06; bx = 2 - by; rot = Math.sin(t * 4) * 0.09; dy = -3 - Math.abs(Math.sin(t * 4)) * 3; }
+    if (pose === 'jump') { bx = 0.84; by = 1.18; rot = Math.sin(t * 6) * 0.07; }
+    if (pose === 'fall') { bx = 1.1; by = 0.92; rot = Math.sin(t * 3.4) * 0.14; }
+  } else if (tier === 2) {                // bouncy sprinter: hop-steps, tucked jump
+    if (pose === 'run') {
+      const ph = t * 15;
+      dy = -Math.abs(Math.sin(ph / 2)) * 7; by = 1 + Math.sin(ph) * 0.09; bx = 2 - by;
+      rot = Math.sin(ph / 2) * 0.1 * dir; swingK = 1.8;
+    }
+    if (pose === 'jump') { bx = 1.1; by = 0.88; rot = -0.12 * dir; }
+    if (pose === 'fall') { bx = 0.88; by = 1.14; rot = 0.08 * dir; }
+  } else if (tier === 3) {                // show-off: forward lean, front flip in the air
+    if (pose === 'run') { by = 1 + Math.sin(t * 12) * 0.07; bx = 2 - by; rot = 0.17 * dir; dy = -Math.abs(Math.sin(t * 6)) * 5; swingK = 2; }
+    if (pose === 'jump' || pose === 'fall') { bx = 0.94; by = 1.06; rot = 0; }
+  } else if (tier === 4) {                // magic: hover-glide, double twirl in the air
+    if (pose === 'run') { bx = 0.96; by = 1.04; rot = 0.1 * dir; dy = -5 - Math.sin(t * 5) * 2; swingK = 0; }
+    if (pose === 'jump' || pose === 'fall') { bx = 0.9 + 0.12 * Math.abs(Math.cos(spin * 2)); by = 1.06; rot = 0; }
+  }
 
-  // ---- ground shadow ----
-  c.fillStyle = 'rgba(74,53,36,.14)';
-  c.beginPath(); c.ellipse(0, 1, W * 0.62, 5.5, 0, 0, 7); c.fill();
+  // chibi proportions: squatter, rounder, slightly wider than tall
+  let W = 48 * bx * sf, H = 37 * by * sf;
+  const shape = ch.shape || 'pat';
+  if (shape === 'puff')  { W *= 0.9;  H *= 1.16; }
+  if (shape === 'bean')  { W *= 0.88; H *= 1.06; }
+  if (shape === 'peach') { W *= 1.04; H *= 1.06; }
+  if (shape === 'drop')  { W *= 0.98; H *= 1.18; }
+  c.rotate(rot); c.translate(0, dy);
+  if (spin) { c.translate(0, -H * 0.5); c.rotate(spin); c.translate(0, H * 0.5); }   // flip about the body's middle
+  const bodyPath = () => {
+    if (shape === 'puff') { rr(c, -W / 2, -H, W, H * 0.97, W * 0.44); return; }
+    c.beginPath();
+    if (shape === 'bean') {
+      c.ellipse(0, -H * 0.5, W / 2, H * 0.5, 0, 0, Math.PI * 2);
+    } else if (shape === 'peach') {        // two soft lobes meeting at a cleft
+      c.moveTo(0, -H * 0.88);
+      c.bezierCurveTo(-W * 0.2, -H * 1.04, -W * 0.56, -H * 0.98, -W * 0.52, -H * 0.5);
+      c.bezierCurveTo(-W * 0.5, -H * 0.08, -W * 0.22, 0, 0, 0);
+      c.bezierCurveTo(W * 0.22, 0, W * 0.5, -H * 0.08, W * 0.52, -H * 0.5);
+      c.bezierCurveTo(W * 0.56, -H * 0.98, W * 0.2, -H * 1.04, 0, -H * 0.88);
+    } else if (shape === 'drop') {         // dewdrop, point up
+      c.moveTo(0, -H);
+      c.bezierCurveTo(W * 0.16, -H * 0.8, W * 0.52, -H * 0.64, W * 0.52, -H * 0.36);
+      c.bezierCurveTo(W * 0.52, -H * 0.06, W * 0.26, 0, 0, 0);
+      c.bezierCurveTo(-W * 0.26, 0, -W * 0.52, -H * 0.06, -W * 0.52, -H * 0.36);
+      c.bezierCurveTo(-W * 0.52, -H * 0.64, -W * 0.16, -H * 0.8, 0, -H);
+    } else {
+      rr(c, -W / 2, -H, W, H * 0.96, Math.min(15 * bx, 17)); return;
+    }
+    c.closePath();
+  };
+
+  // ---- ground shadow (not while flipping — it would spin with the body) ----
+  if (!spin) {
+    c.fillStyle = 'rgba(74,53,36,.14)';
+    c.beginPath(); c.ellipse(0, 1, W * 0.62, 5.5, 0, 0, 7); c.fill();
+  }
 
   // ---- glow aura ----
-  const glowA = 0.2 + Math.sin(t * 3) * 0.06;
-  c.fillStyle = ch.glow; c.globalAlpha = glowA;
-  c.beginPath(); c.ellipse(0, -H * 0.42, W * 1.05, H * 0.8, 0, 0, 7); c.fill();
-  c.globalAlpha = 1;
+  // soft radial falloff (no hard edge when the aura meets the canvas edge)
+  const glowA = 0.32 + Math.sin(t * 3) * 0.1;
+  c.save();
+  c.translate(0, -H * 0.42); c.scale(1, (H * 0.8) / (W * 1.05));
+  const gr = c.createRadialGradient(0, 0, 0, 0, 0, W * 1.05);
+  gr.addColorStop(0, ch.glow); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = gr; c.globalAlpha = glowA;
+  c.beginPath(); c.arc(0, 0, W * 1.05, 0, Math.PI * 2); c.fill();
+  c.restore();
 
   // ---- feet (visible stubs, animate while running) ----
-  const step = pose === 'run' ? Math.sin(t * 14) * 4.5 : 0;
+  const step = pose === 'run' ? Math.sin(t * 14) * 4.5 * Math.min(swingK, 1.4) : 0;
   c.fillStyle = bodyD;
-  rr(c, -13 + step, -7, 12, 8, 4); c.fill();
-  rr(c, 1 - step, -7, 12, 8, 4); c.fill();
+  rr(c, -14 + step, -6.5, 13, 8.5, 4.2); c.fill();
+  rr(c, 1 - step, -6.5, 13, 8.5, 4.2); c.fill();
 
   // ---- arms (tiny nubs; raise on win/jump/collect) ----
   const armUp = pose === 'win' || pose === 'jump' || pose === 'collect';
-  const swing = pose === 'run' ? Math.sin(t * 14) * 4 : Math.sin(t * 2.4) * 1.2;
-  c.strokeStyle = body; c.lineWidth = 6.5; c.lineCap = 'round';
+  const swing = pose === 'run' ? Math.sin(t * 14) * 4 * swingK : Math.sin(t * 2.4) * 1.2;
+  c.strokeStyle = body; c.lineWidth = 7.5; c.lineCap = 'round';
   c.beginPath();
   c.moveTo(-W / 2 + 1, -H * 0.55);
   c.lineTo(-W / 2 - 4 + (armUp ? -3 : swing), -H * (armUp ? 0.94 : 0.66));
@@ -345,14 +405,19 @@ WW.paintSpirit = (c, w, h, s) => {
   c.lineTo(W / 2 + 4 - (armUp ? -3 : swing), -H * (armUp ? 0.94 : 0.66));
   c.stroke();
 
-  // ---- body: rounded, thin darker border (prototype signature) ----
-  c.fillStyle = body;
-  rr(c, -W / 2, -H, W, H * 0.96, Math.min(13 * bx, 14)); c.fill();
-  c.strokeStyle = bodyD; c.lineWidth = 3; c.lineJoin = 'round';
-  rr(c, -W / 2, -H, W, H * 0.96, Math.min(13 * bx, 14)); c.stroke();
-  // soft top-light
+  // ---- body: per-spirit silhouette, thick darker border ----
+  c.fillStyle = body; bodyPath(); c.fill();
+  // soft top-light, clipped to the silhouette
+  c.save(); bodyPath(); c.clip();
   c.fillStyle = 'rgba(255,255,255,.28)';
-  rr(c, -W * 0.36, -H + 4, W * 0.5, H * 0.3, 8); c.fill();
+  rr(c, -W * 0.36, -H + 4, W * 0.5, H * 0.28, 8); c.fill();
+  c.restore();
+  c.strokeStyle = bodyD; c.lineWidth = 4.4; c.lineJoin = 'round';
+  bodyPath(); c.stroke();
+  if (shape === 'peach') {                 // the peach cleft
+    c.strokeStyle = bodyD; c.lineWidth = 2.4; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(0, -H * 0.86); c.quadraticCurveTo(-4, -H * 0.78, -3, -H * 0.7); c.stroke();
+  }
 
   // ---- face ----
   const look = s.look === 'r' ? 1.4 : s.look === 'l' ? -1.4 : 0;
@@ -369,9 +434,40 @@ WW.paintSpirit = (c, w, h, s) => {
     c.fillStyle = '#fff';
     c.beginPath(); c.arc(-5.6 + look, eyeY - 1, 1, 0, 7); c.fill();
     c.beginPath(); c.arc(7.4 + look, eyeY - 1, 1, 0, 7); c.fill();
+  } else if (ch.eyes === 'bright') {  // tall shiny ovals + brave little brows
+    for (const ex of [-7, 7]) {
+      c.fillStyle = '#3a2c22';
+      c.beginPath(); c.ellipse(ex + look, eyeY, 3, 4.4, 0, 0, 7); c.fill();
+      c.fillStyle = '#fff';
+      c.beginPath(); c.ellipse(ex + look + 0.9, eyeY - 1.8, 1.2, 1.5, 0, 0, 7); c.fill();
+    }
+    c.strokeStyle = '#3a2c22'; c.lineWidth = 2; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(-10 + look, eyeY - 8.2); c.lineTo(-4.4 + look, eyeY - 6.8); c.stroke();
+    c.beginPath(); c.moveTo(10 + look, eyeY - 8.2); c.lineTo(4.4 + look, eyeY - 6.8); c.stroke();
+  } else if (ch.eyes === 'sleepy') {  // closed, contented arcs
+    c.strokeStyle = '#3a2c22'; c.lineWidth = 2.4; c.lineCap = 'round';
+    for (const ex of [-6.5, 6.5]) {
+      c.beginPath(); c.arc(ex + look, eyeY - 1.5, 3.4, 0.15 * Math.PI, 0.85 * Math.PI); c.stroke();
+    }
+  } else if (ch.eyes === 'big') {     // big shiny eyes
+    for (const ex of [-7, 7]) {
+      c.fillStyle = '#3a2c22'; c.beginPath(); c.arc(ex + look, eyeY, 4.8, 0, 7); c.fill();
+      c.fillStyle = '#fff'; c.beginPath(); c.arc(ex + look + 1.4, eyeY - 1.6, 1.7, 0, 7); c.fill();
+    }
+  } else if (ch.eyes === 'sparkle') { // eyes with a twinkle
+    for (const ex of [-6.5, 6.5]) {
+      c.fillStyle = '#3a2c22'; c.beginPath(); c.arc(ex + look, eyeY, 3.9, 0, 7); c.fill();
+      c.fillStyle = '#fff';
+      c.beginPath(); c.arc(ex + look + 1.2, eyeY - 1.3, 1.4, 0, 7); c.fill();
+      c.beginPath(); c.arc(ex + look - 1.3, eyeY + 1.4, 0.8, 0, 7); c.fill();
+    }
+  } else if (ch.eyes === 'calm') {    // relaxed half-lidded eyes
+    for (const ex of [-6.5, 6.5]) {
+      c.beginPath(); c.arc(ex + look, eyeY - 1, 3.6, 0, Math.PI); c.closePath(); c.fill();
+    }
   } else {                           // the classic small dot eyes
-    c.beginPath(); c.arc(-6.5 + look, eyeY, 2.6, 0, 7); c.fill();
-    c.beginPath(); c.arc(6.5 + look, eyeY, 2.6, 0, 7); c.fill();
+    c.beginPath(); c.arc(-6.5 + look, eyeY, 3.4, 0, 7); c.fill();
+    c.beginPath(); c.arc(6.5 + look, eyeY, 3.4, 0, 7); c.fill();
   }
   // blush (prototype pink dashes)
   c.fillStyle = ch.cheek; c.globalAlpha = 0.85;
@@ -385,6 +481,15 @@ WW.paintSpirit = (c, w, h, s) => {
     c.ellipse(look, -H * 0.42, 3.2, 4, 0, 0, Math.PI);
   } else if (worried) {
     c.ellipse(look, -H * 0.36, 2.4, 2.8, 0, 0, 7);      // little o
+  } else if (ch.mouth === 'grin') {                     // big open grin
+    c.moveTo(-4.6 + look, -H * 0.46);
+    c.quadraticCurveTo(look, -H * 0.3, 4.6 + look, -H * 0.46); c.closePath();
+    c.fillStyle = '#7a3a3a'; c.fill();
+  } else if (ch.mouth === 'tiny') {                     // small sleepy smile
+    c.moveTo(-2 + look, -H * 0.46);
+    c.quadraticCurveTo(look, -H * 0.43, 2 + look, -H * 0.46);
+  } else if (ch.mouth === 'flat') {                     // calm, barely-there line
+    c.moveTo(-2.8 + look, -H * 0.45); c.lineTo(2.8 + look, -H * 0.45);
   } else {
     c.moveTo(-3.4 + look, -H * 0.47);
     c.quadraticCurveTo(look, -H * 0.43, 3.4 + look, -H * 0.47);
@@ -423,7 +528,7 @@ WW.paintSpirit = (c, w, h, s) => {
     rr(c, W / 2 - 5, -H * 0.36 + 5, 7, 13, 3.4); c.fill();
   }
   if (ac === 'flower') {
-    const px = 9, py = -H - 3;
+    const px = shape === 'drop' ? 11 : 9, py = shape === 'drop' ? -H * 0.8 : -H - 3;
     c.fillStyle = tint?.primary || '#f6a6b2';
     for (let i = 0; i < 5; i++) {
       const a = i / 5 * Math.PI * 2 - 0.6;
@@ -448,100 +553,167 @@ WW.paintSpirit = (c, w, h, s) => {
   c.restore();
 };
 
+/** Flip angle while airborne after a jump, for tier-3+ spirits: driven by
+ *  vertical speed, so one full turn (two for tier 4) lands as the fall
+ *  speeds up. `jumps` counts the double hop as a second set of turns. */
+WW.flipAngle = (ch, vy, jumps, dir) => {
+  const tier = ch.anim || 0;
+  if (tier < 3 || !jumps) return 0;
+  const jv = WW.Physics.TUNE.jumpV;
+  const ph = Math.min(1, Math.max(0, (jv - vy) / (2 * jv)));
+  return dir * (ph + jumps - 1) * (tier >= 4 ? 2 : 1) * Math.PI * 2;
+};
+
 /* ================================================================
  * §3  Hazards & surface decals — outlined so threats read fast
  * ================================================================ */
+/* Hazards get the darkest outline in the scene (HZ) at a heavier weight
+ * than background props, plus saturated fills, so they pop off the
+ * pastel kitchen. Canvas sizes are unchanged so hitboxes still match. */
+const HZ = 'rgba(78, 50, 28, .95)';
+const HZW = 3.6;
+
 WW.tex('hz-flour', 96, 40, (c) => {
-  c.fillStyle = 'rgba(255,253,246,.97)';
-  c.beginPath(); c.ellipse(48, 28, 44, 12, 0, 0, 7); c.fill();
-  c.beginPath(); c.ellipse(24, 16, 15, 11, 0, 0, 7); c.fill();
-  c.beginPath(); c.ellipse(66, 15, 18, 12, 0, 0, 7); c.fill();
-  c.beginPath(); c.ellipse(45, 10, 13, 10, 0, 0, 7); c.fill();
-  c.strokeStyle = 'rgba(150,125,92,.55)'; c.lineWidth = 2;
-  c.beginPath(); c.ellipse(48, 27, 43, 11.4, 0, 0, 7); c.stroke();
-  c.fillStyle = 'rgba(214,186,150,.5)';
-  c.beginPath(); c.ellipse(48, 32, 40, 5, 0, 0, 7); c.fill();
+  const puff = () => {
+    c.beginPath();
+    for (const [x, y, rx, ry] of [[48, 28, 42, 10], [25, 18, 15, 11], [66, 17, 18, 12], [45, 12, 14, 10]]) {
+      c.moveTo(x + rx, y); c.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+    }
+  };
+  // outline pass: stroke the whole silhouette, then fill over the inner lines
+  c.strokeStyle = HZ; c.lineWidth = HZW * 1.6; c.lineJoin = 'round';
+  puff(); c.stroke();
+  c.fillStyle = '#ffffff'; puff(); c.fill();
+  // shading so the pile has volume against the cream counter
+  c.fillStyle = '#e3cfae';
+  c.beginPath(); c.ellipse(48, 31, 38, 5, 0, 0, 7); c.fill();
+  c.fillStyle = 'rgba(214,186,150,.6)';
+  c.beginPath(); c.ellipse(70, 21, 10, 5, 0, 0, 7); c.fill();
+  c.beginPath(); c.ellipse(30, 22, 8, 4, 0, 0, 7); c.fill();
+  // drifting specks
+  c.fillStyle = HZ;
+  for (const [x, y] of [[10, 9], [86, 7], [80, 3]]) { c.beginPath(); c.arc(x, y, 1.8, 0, 7); c.fill(); }
 });
 
 WW.tex('hz-pin', 130, 62, (c) => {
-  c.fillStyle = '#e8b575'; rr(c, 14, 20, 100, 24, 12); c.fill();
-  c.strokeStyle = '#96612f'; c.lineWidth = 2.6; rr(c, 14, 20, 100, 24, 12); c.stroke();
-  c.fillStyle = '#e5966b'; rr(c, 18, 26, 92, 12, 6); c.fill();
-  c.fillStyle = '#96612f';
-  rr(c, 0, 25, 20, 14, 7); c.fill();
-  c.strokeStyle = '#7a4a22'; c.lineWidth = 2; rr(c, 0, 25, 20, 14, 7); c.stroke();
-  rr(c, 108, 25, 20, 14, 7); c.fill();
-  c.strokeStyle = '#7a4a22'; rr(c, 108, 25, 20, 14, 7); c.stroke();
-  c.strokeStyle = 'rgba(150,97,47,.6)'; c.lineWidth = 2;
-  for (const x of [40, 62, 84]) { c.beginPath(); c.moveTo(x, 22); c.lineTo(x, 42); c.stroke(); }
+  c.lineJoin = 'round';
+  c.fillStyle = '#e39a4f'; rr(c, 14, 18, 100, 28, 14); c.fill();
+  c.strokeStyle = HZ; c.lineWidth = HZW; rr(c, 14, 18, 100, 28, 14); c.stroke();
+  c.fillStyle = '#f2c48b'; rr(c, 22, 22, 84, 8, 4); c.fill();
+  c.fillStyle = '#7a4a22';
+  rr(c, 0, 24, 20, 16, 8); c.fill();
+  c.strokeStyle = HZ; c.lineWidth = HZW * 0.8; rr(c, 0, 24, 20, 16, 8); c.stroke();
+  c.fillStyle = '#7a4a22';
+  rr(c, 108, 24, 20, 16, 8); c.fill();
+  c.strokeStyle = HZ; rr(c, 108, 24, 20, 16, 8); c.stroke();
+  c.strokeStyle = 'rgba(122,74,34,.75)'; c.lineWidth = 2.4;
+  for (const x of [40, 62, 84]) { c.beginPath(); c.moveTo(x, 21); c.lineTo(x, 43); c.stroke(); }
 });
 
-const Puddle = (key, deep, mid, shine) => WW.tex(key, 200, 46, (c) => {
+const Puddle = (key, deep, mid, shine, rim) => WW.tex(key, 200, 46, (c) => {
+  const blob = () => {
+    c.beginPath(); c.moveTo(10, 34);
+    c.quadraticCurveTo(28, 14, 62, 22); c.quadraticCurveTo(96, 8, 136, 22);
+    c.quadraticCurveTo(172, 13, 190, 34);
+    c.quadraticCurveTo(100, 46, 10, 34); c.closePath();
+  };
+  c.lineJoin = 'round';
+  c.fillStyle = mid; blob(); c.fill();
   c.fillStyle = deep;
-  c.beginPath(); c.ellipse(100, 36, 92, 9, 0, 0, 7); c.fill();
-  c.beginPath(); c.moveTo(12, 34);
-  c.quadraticCurveTo(30, 16, 62, 24); c.quadraticCurveTo(96, 10, 136, 24);
-  c.quadraticCurveTo(170, 15, 188, 34);
-  c.quadraticCurveTo(100, 44, 12, 34); c.closePath();
-  c.fillStyle = mid; c.fill();
-  c.strokeStyle = 'rgba(100,80,55,.4)'; c.lineWidth = 2;
-  c.beginPath(); c.moveTo(12, 34);
-  c.quadraticCurveTo(30, 16, 62, 24); c.quadraticCurveTo(96, 10, 136, 24);
-  c.quadraticCurveTo(170, 15, 188, 34); c.stroke();
+  c.beginPath(); c.ellipse(100, 36, 84, 6, 0, 0, 7); c.fill();
+  c.strokeStyle = rim; c.lineWidth = HZW; blob(); c.stroke();
   c.fillStyle = shine;
-  c.beginPath(); c.ellipse(56, 24, 12, 3.4, -0.2, 0, 7); c.fill();
-  c.beginPath(); c.ellipse(132, 26, 9, 2.6, 0.2, 0, 7); c.fill();
+  c.beginPath(); c.ellipse(56, 24, 14, 3.6, -0.2, 0, 7); c.fill();
+  c.beginPath(); c.ellipse(132, 25, 10, 2.8, 0.2, 0, 7); c.fill();
 });
-Puddle('hz-butter', '#d9b23a', '#ffd66b', '#fff3c4');
-Puddle('hz-milk', '#cfe4f2', '#eef6fb', '#ffffff');
-Puddle('hz-jam', '#8c2f47', '#b34a63', '#e08aa0');
+Puddle('hz-butter', '#e0a91c', '#ffcf3f', '#fff6d2', '#9a6a0c');
+Puddle('hz-milk', '#a9cbe6', '#e3f1fb', '#ffffff', '#4f7fa6');
+Puddle('hz-jam', '#7a2238', '#b8405c', '#f0a0b4', '#5c1528');
 
 WW.tex('hz-jamdrop', 60, 42, (c) => {
-  c.fillStyle = '#b34a63';
-  c.beginPath(); c.ellipse(30, 26, 22, 13, 0, 0, 7); c.fill();
-  c.beginPath(); c.ellipse(30, 16, 12, 11, 0, 0, 7); c.fill();
-  c.strokeStyle = '#7d2840'; c.lineWidth = 2;
-  c.beginPath(); c.ellipse(30, 24, 21, 12, 0, 0, 7); c.stroke();
-  c.fillStyle = '#e08aa0';
-  c.beginPath(); c.ellipse(24, 15, 5, 3, -0.3, 0, 7); c.fill();
+  const drop = () => {
+    c.beginPath();
+    c.moveTo(53, 27); c.ellipse(30, 27, 23, 12, 0, 0, Math.PI * 2);
+    c.moveTo(42, 17); c.ellipse(30, 17, 12, 11, 0, 0, Math.PI * 2);
+  };
+  c.strokeStyle = '#5c1528'; c.lineWidth = HZW * 1.5; drop(); c.stroke();
+  c.fillStyle = '#b8405c'; drop(); c.fill();
+  c.fillStyle = '#8c2f47';
+  c.beginPath(); c.ellipse(30, 32, 18, 4, 0, 0, 7); c.fill();
+  c.fillStyle = '#f0a0b4';
+  c.beginPath(); c.ellipse(24, 14, 5, 3, -0.3, 0, 7); c.fill();
 });
 
-WW.tex('hz-fan', 74, 92, (c) => {
-  c.fillStyle = P.metal; rr(c, 30, 62, 14, 28, 5); c.fill();
-  c.strokeStyle = 'rgba(90,105,115,.8)'; c.lineWidth = 2.4; rr(c, 30, 62, 14, 28, 5); c.stroke();
-  c.fillStyle = '#8fa1ab'; rr(c, 20, 84, 34, 8, 4); c.fill();
-  c.fillStyle = '#eef4f7'; rr(c, 10, 6, 54, 60, 20); c.fill();
-  c.strokeStyle = '#8295a1'; c.lineWidth = 3; rr(c, 10, 6, 54, 60, 20); c.stroke();
-  c.strokeStyle = '#9aacb7'; c.lineWidth = 4;
-  c.beginPath(); c.ellipse(37, 36, 25, 27, 0, 0, 7); c.stroke();
-  c.fillStyle = '#c9d6dd';
-  const rotateBlade = (a) => {
-    c.save(); c.translate(37, 36); c.rotate(a);
-    c.beginPath(); c.ellipse(0, -13, 5, 11, 0, 0, 7); c.fill();
-    c.strokeStyle = 'rgba(120,140,150,.7)'; c.lineWidth = 1.6;
-    c.beginPath(); c.ellipse(0, -13, 5, 11, 0, 0, 7); c.stroke();
+/* The fan is just its spinning blades (drawn at 2x for a crisp spin). */
+const paintFanBlades = (c, cx, cy) => {
+  for (const a of [0, Math.PI * 2 / 3, Math.PI * 4 / 3]) {
+    c.save(); c.translate(cx, cy); c.rotate(a);
+    c.fillStyle = '#8ec3de';
+    c.beginPath(); c.ellipse(0, -13, 5.5, 11, 0, 0, 7); c.fill();
+    c.strokeStyle = '#3f525c'; c.lineWidth = 2;
+    c.beginPath(); c.ellipse(0, -13, 5.5, 11, 0, 0, 7); c.stroke();
     c.restore();
+  }
+  c.fillStyle = '#3f525c'; c.beginPath(); c.arc(cx, cy, 4.5, 0, 7); c.fill();
+};
+WW.tex('hz-fan-blades', 104, 104, (c) => { c.scale(2, 2); paintFanBlades(c, 26, 26); });
+
+/* Breeze FX: a tapered gust (head on the left, the way it blows) and a
+ * chevron arrow. Blue with a white core so it reads on the cream kitchen. */
+WW.tex('fx-gust', 128, 24, (c) => {
+  const streak = (lw, col) => {
+    c.fillStyle = col;
+    c.beginPath();
+    c.moveTo(124, 12);
+    c.quadraticCurveTo(60, 12 - lw * 0.35, 14, 12 - lw / 2);
+    c.arc(14, 12, lw / 2, -Math.PI / 2, Math.PI / 2, true);
+    c.quadraticCurveTo(60, 12 + lw * 0.35, 124, 12);
+    c.closePath(); c.fill();
   };
-  rotateBlade(0); rotateBlade(Math.PI * 2 / 3); rotateBlade(Math.PI * 4 / 3);
-  c.fillStyle = '#5c6b73'; c.beginPath(); c.arc(37, 36, 4, 0, 7); c.fill();
+  streak(15, 'rgba(63,110,150,.95)');
+  streak(7, 'rgba(255,255,255,.95)');
+  // little curl at the head
+  c.strokeStyle = 'rgba(63,110,150,.95)'; c.lineWidth = 3.4; c.lineCap = 'round';
+  c.beginPath(); c.arc(14, 6, 6, Math.PI * 0.5, Math.PI * 1.6); c.stroke();
+});
+WW.tex('fx-chevron', 32, 32, (c) => {
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  const chev = (lw, col) => {
+    c.strokeStyle = col; c.lineWidth = lw;
+    c.beginPath(); c.moveTo(22, 6); c.lineTo(9, 16); c.lineTo(22, 26); c.stroke();
+  };
+  chev(9, 'rgba(63,110,150,.95)');
+  chev(4, '#ffffff');
+});
+
+/** Soft contact shadow placed under standing hazards so they sit on the
+ *  counter instead of floating over it. */
+WW.tex('hz-shadow', 100, 20, (c) => {
+  c.fillStyle = 'rgba(78,50,28,.28)';
+  c.beginPath(); c.ellipse(50, 10, 48, 8, 0, 0, 7); c.fill();
 });
 
 /* ================================================================
  * §4  Collectibles + goal
  * ================================================================ */
+/** Coin pickup — same look as the HUD coin so players connect the two. */
 WW.tex('co-spark', 44, 44, (c) => {
-  c.fillStyle = '#ffe9a8';
+  c.fillStyle = '#ffd25e';
+  c.beginPath(); c.arc(22, 22, 19, 0, 7); c.fill();
+  c.strokeStyle = '#b8791f'; c.lineWidth = 3; c.stroke();
+  c.strokeStyle = 'rgba(184,121,31,.55)'; c.lineWidth = 2;
+  c.beginPath(); c.arc(22, 22, 13.5, 0, 7); c.stroke();
+  c.fillStyle = '#c98a1e';
   c.beginPath();
-  for (let i = 0; i < 8; i++) {
-    const a = i / 8 * Math.PI * 2 - Math.PI / 2;
-    const r = i % 2 === 0 ? 17 : 7;
+  for (let i = 0; i < 10; i++) {
+    const a = i / 10 * Math.PI * 2 - Math.PI / 2;
+    const r = i % 2 === 0 ? 8 : 3.6;
     const x = 22 + Math.cos(a) * r, y = 22 + Math.sin(a) * r;
     i === 0 ? c.moveTo(x, y) : c.lineTo(x, y);
   }
   c.closePath(); c.fill();
-  c.strokeStyle = '#e9a63a'; c.lineWidth = 2; c.stroke();
-  c.fillStyle = '#fff';
-  c.beginPath(); c.arc(19, 18, 3.4, 0, 7); c.fill();
+  c.fillStyle = 'rgba(255,255,255,.75)';
+  c.beginPath(); c.ellipse(14, 13, 4.5, 2.6, -0.7, 0, 7); c.fill();
 });
 
 WW.tex('co-gem', 40, 40, (c) => {

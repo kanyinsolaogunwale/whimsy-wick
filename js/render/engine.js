@@ -61,10 +61,15 @@ WW.Engine = (canvas) => {
   });
   WW.tex('pt-puff', 20, 20, (c) => { c.fillStyle = 'rgba(255,251,240,.9)'; c.beginPath(); c.arc(10, 10, 8, 0, 7); c.fill(); });
   WW.tex('pt-star', 16, 16, (c) => { c.fillStyle = '#fff'; c.fillRect(7, 1, 2, 14); c.fillRect(1, 7, 14, 2); });
+  WW.tex('pt-petal', 14, 14, (c) => {
+    c.fillStyle = '#f6a6b2'; c.beginPath(); c.ellipse(7, 7, 3.4, 6, 0.6, 0, 7); c.fill();
+    c.strokeStyle = '#e07d8b'; c.lineWidth = 1.2; c.stroke();
+  });
 
   const PARTS = [];
   const partGeo = new THREE.PlaneGeometry(1, 1);
   const spawnParticle = (x, y, texKey, size, vel, life, z = 2) => {
+    if (PARTS.length > 160) return;                 // keep trails cheap
     const e = WW.tex(texKey, 14, 14, () => {});
     const m = new THREE.Mesh(partGeo, new THREE.MeshBasicMaterial({
       map: e.texture, transparent: true, depthWrite: false, opacity: 1,
@@ -75,18 +80,21 @@ WW.Engine = (canvas) => {
     PARTS.push({ m, vel, life, age: 0 });
   };
 
+  /** n particles fanning upward from (x, y). */
+  const puffs = (x, y, tex, n, spd, size, life) => {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      spawnParticle(x, y, tex, size * (0.7 + Math.random() * 0.6),
+        { x: Math.cos(a) * spd * (0.4 + Math.random() * 0.6),
+          y: Math.abs(Math.sin(a)) * spd * (0.4 + Math.random() * 0.6) + spd * 0.25 },
+        life * (0.7 + Math.random() * 0.6));
+    }
+  };
+
   const burst = (x, y, kind) => {
     const reduced = WW.settings && WW.settings.reducedMotion;
     if (reduced && kind !== 'collect') return;
-    const mk = (tex, n, spd, size, life) => {
-      for (let i = 0; i < n; i++) {
-        const a = Math.random() * Math.PI * 2;
-        spawnParticle(x, y, tex, size * (0.7 + Math.random() * 0.6),
-          { x: Math.cos(a) * spd * (0.4 + Math.random() * 0.6),
-            y: Math.abs(Math.sin(a)) * spd * (0.4 + Math.random() * 0.6) + spd * 0.25 },
-          life * (0.7 + Math.random() * 0.6));
-      }
-    };
+    const mk = (tex, n, spd, size, life) => puffs(x, y, tex, n, spd, size, life);
     if (kind === 'collect') mk('pt-spark', 6, 130, 12, 0.55);
     if (kind === 'gem')     { mk('pt-spark', 5, 150, 13, 0.65); mk('pt-star', 4, 110, 15, 0.8); }
     if (kind === 'puff')    mk('pt-puff', 4, 55, 17, 0.65);
@@ -119,6 +127,11 @@ WW.Engine = (canvas) => {
   let pins = [], fans = [], sparkPairs = [], gemPairs = [];
   let goalFlame = null, goalBody = null, charHolder = null, charDef = null;
   let charMesh = null, charTex = null, worldRef = null, windStreaks = [];
+  /* per-spirit move FX state: smoothed flip angle, facing, trail timers,
+   * jump/land edge detection and tier-4 afterimage meshes */
+  let flipA = 0, lastDir = 1, prevGround = true, prevVy = 0, fxRun = 0, fxAir = 0;
+  let ghosts = [];
+  const trail = [];
 
   const repeatStrip = (texKey, pxW, pxH, hUnits, from, to, z, y, parent) => {
     const e = WW.tex(texKey, pxW, pxH, (c, w, h) => { void c; void w; void h; });
@@ -154,7 +167,9 @@ WW.Engine = (canvas) => {
     repeatStrip('bg-props', 640, 300, 190, -800, L + 800, -4, 240, gMid);
     /* deco minis standing on the counter's back edge */
     repeatStrip('props-mini', 560, 120, 56, -600, L + 600, -2.5, 118, gDeco);
-    /* the counter itself: tile top exactly at the ground line */
+    /* faded so background clutter never reads as an obstacle */
+    for (const m of gDeco.children) m.material.opacity = 0.55;
+    /* the counter itself: countertop exactly at the ground line */
     repeatStrip('bg-counter', 640, 360, 300, -700, L + 700, -1.5, WW.Physics.GROUND_Y - 150, gWorld);
 
     /* platforms — draw each with its own mini canvas */
@@ -169,13 +184,17 @@ WW.Engine = (canvas) => {
 
     /* hazards */
     const G = WW.Physics.GROUND_Y;
+    const shadowE = WW.tex('hz-shadow', 100, 20, () => {});
+    const shadow = (x, w) => sprite(shadowE, w, 12, x, G + 1, -0.3);
     for (const h of cfg.world.hazards) {
       if (h.t === 'flour') {
+        shadow(h.x + 46, 96);
         sprite(WW.tex('hz-flour', 96, 40, () => {}), 92, 40, h.x + 46, G + 20, -0.2);
       } else if (h.t === 'pin') {
         h.px = h.px ?? h.x + h.range / 2;
+        const sh = shadow(h.px, 110);
         const m = sprite(WW.tex('hz-pin', 130, 62, () => {}), 128, 61, h.px, G + 41, 0.4);
-        pins.push({ h, m });
+        pins.push({ h, m, sh });
       } else if (h.t === 'butter') {
         sprite(WW.tex('hz-butter', 200, 46, () => {}), h.w, h.w * 0.23, h.x + h.w / 2, G + 5, 0.1);
       } else if (h.t === 'milk') {
@@ -183,16 +202,32 @@ WW.Engine = (canvas) => {
       } else if (h.t === 'jam') {
         sprite(WW.tex('hz-jam', 200, 46, () => {}), h.w, h.w * 0.23, h.x + h.w / 2, G + 5, 0.15);
       } else if (h.t === 'jamdrop') {
+        shadow(h.x + 26, 48);
         sprite(WW.tex('hz-jamdrop', 60, 42, () => {}), 44, 31, h.x + 26, G + 15.5, 0.15);
       } else if (h.t === 'fan') {
-        const m = sprite(WW.tex('hz-fan', 74, 92, () => {}), 52, 65, h.x + 26, G + 46.5, 0.3);
+        /* just the spinning blades, floating over the counter */
+        shadow(h.x + 26, 46);
+        const m = sprite(WW.tex('hz-fan-blades', 104, 104, () => {}), 54, 54, h.x + 26, G + 46, 0.32);
         fans.push({ h, m });
-        for (let i = 0; i < 6; i++) {
-          const wm = new THREE.Mesh(new THREE.PlaneGeometry(64, 3.2),
-            new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0 }));
-          wm.position.set(h.x + 160, G + 22 + i * 30, 0.25);
-          gWorld.add(wm);
-          windStreaks.push({ m: wm, baseY: G + 22 + i * 30, baseX: h.x + 160, i });
+        /* breeze: fast gusts + chevrons racing out of the blades toward the
+         * player across the whole push zone, in front of Ghee (z > 1) */
+        const W = WW.Physics.WIND;
+        const gustE = WW.tex('fx-gust', 128, 24, () => {});
+        const chevE = WW.tex('fx-chevron', 32, 32, () => {});
+        for (let i = 0; i < 10; i++) {
+          const len = 64 + (i * 37 % 5) * 12;
+          windStreaks.push({
+            m: sprite(gustE, len, len * 24 / 128, h.x + 4, G, 1.1),
+            baseX: h.x + 4, baseY: G + 10 + (i % 5) * ((W.height - 14) / 4),
+            reach: W.reach + 30, period: 0.62, phase: i * 0.29, wob: 3,
+          });
+        }
+        for (let i = 0; i < 3; i++) {
+          windStreaks.push({
+            m: sprite(chevE, 28, 28, h.x, G, 1.1),
+            baseX: h.x, baseY: G + 26 + i * 20,
+            reach: W.reach, period: 0.9, phase: i * 0.3, wob: 0,
+          });
         }
       }
     }
@@ -200,7 +235,7 @@ WW.Engine = (canvas) => {
     /* collectibles */
     const sparkE = WW.tex('co-spark', 44, 44, () => {});
     const gemE = WW.tex('co-gem', 40, 40, () => {});
-    for (const s of cfg.world.sparks) sparkPairs.push({ s, m: sprite(sparkE, 26, 26, s.x, G + s.y, 0.6) });
+    for (const s of cfg.world.sparks) sparkPairs.push({ s, m: sprite(sparkE, 30, 30, s.x, G + s.y, 0.6) });
     for (const g of cfg.world.gems) gemPairs.push({ g, m: sprite(gemE, 32, 32, g.x, G + g.y, 0.6) });
 
     /* goal lantern + flame (story only — endless runs have none) */
@@ -223,9 +258,68 @@ WW.Engine = (canvas) => {
     charHolder.add(charMesh);
     gWorld.add(charHolder);
     charHolder.position.z = 1;
+
+    /* tier-4 spirits leave fading afterimages (same live texture, lagged) */
+    flipA = 0; prevGround = true; prevVy = 0; fxRun = fxAir = 0; trail.length = 0;
+    ghosts = [];
+    if (charDef && charDef.anim >= 4) {
+      for (const [i, op] of [0.34, 0.2, 0.1].entries()) {
+        const g = new THREE.Mesh(charMesh.geometry, new THREE.MeshBasicMaterial({ map: charTex, transparent: true, depthWrite: false, opacity: op }));
+        g.position.z = 0.9 - i * 0.01; g.visible = false;
+        gWorld.add(g); ghosts.push(g);
+      }
+    }
   };
 
   const charCanvas = WW.canvas(1, 1); /* resized at build */
+
+  /* Per-spirit move FX — the pricier the spirit, the more it shows off:
+   *  1 floaty puffs · 2 dust kicks · 3 sparkle trail · 4 petals + afterimages */
+  const moveFx = (state, dt, off) => {
+    const tier = (charDef && charDef.anim) || 0;
+    const x = charHolder.position.x, y = state.y, d = lastDir;
+    const running = state.onGround && Math.abs(state.vx) > 90;
+    const jumped = (prevGround && !state.onGround && state.vy > 200) ||
+                   (!state.onGround && state.vy > prevVy + 200);       // double hop
+    const landed = !prevGround && state.onGround;
+    prevGround = state.onGround; prevVy = state.vy;
+
+    trail.unshift({ x, y: y + 50 });
+    if (trail.length > 13) trail.length = 13;
+    ghosts.forEach((g, i) => {
+      const p = trail[(i + 1) * 4];
+      g.visible = !off && !!p && (Math.abs(state.vx) > 40 || !state.onGround);
+      if (p) { g.position.x = p.x; g.position.y = p.y; g.scale.copy(charMesh.scale); }
+    });
+    if (off || tier === 0) return;
+
+    if (jumped) {
+      if (tier === 1) puffs(x, y + 6, 'pt-puff', 4, 45, 13, 0.6);
+      if (tier === 2) puffs(x, y + 4, 'pt-puff', 6, 80, 14, 0.5);
+      if (tier === 3) { puffs(x, y + 4, 'pt-puff', 4, 70, 13, 0.45); puffs(x, y + 22, 'pt-spark', 8, 120, 11, 0.6); }
+      if (tier >= 4) { puffs(x, y + 24, 'pt-petal', 10, 110, 13, 1); puffs(x, y + 24, 'pt-spark', 6, 140, 11, 0.6); puffs(x, y + 24, 'pt-star', 3, 120, 14, 0.7); }
+    }
+    if (landed && tier >= 2) {
+      puffs(x, y + 4, 'pt-puff', tier >= 3 ? 7 : 5, 90, 15, 0.5);
+      if (tier >= 4) puffs(x, y + 8, 'pt-petal', 6, 80, 12, 0.9);
+    }
+    fxRun += dt; fxAir += dt;
+    if (running) {
+      const every = [0, 0.3, 0.12, 0.1, 0.09][tier];
+      if (fxRun > every) {
+        fxRun = 0;
+        if (tier === 1) spawnParticle(x, y + 2, 'pt-puff', 10, { x: 0, y: 18 }, 0.5);
+        if (tier === 2 || tier === 3) spawnParticle(x - d * 14, y + 4, 'pt-puff', 11, { x: -d * 60, y: 30 }, 0.45);
+        if (tier === 3 && Math.random() < 0.5) spawnParticle(x - d * 18, y + 24, 'pt-spark', 9, { x: -d * 30, y: 20 }, 0.5);
+        if (tier >= 4) spawnParticle(x - d * 16, y + 20, 'pt-petal', 11, { x: -d * 40, y: 40 }, 0.9);
+      }
+    }
+    if (!state.onGround && tier >= 3 && fxAir > 0.05) {
+      fxAir = 0;
+      spawnParticle(x, y + 25, 'pt-spark', 9, { x: -d * 20, y: 10 }, 0.45);
+      if (tier >= 4) spawnParticle(x - d * 8, y + 30, 'pt-petal', 10, { x: -d * 30, y: 30 }, 0.8);
+    }
+  };
 
   const lightGoal = () => {
     if (!goalFlame) return;
@@ -238,6 +332,17 @@ WW.Engine = (canvas) => {
   const sync = (state, dt, o) => {
     if (!worldRef || !charTex) return;
     const now = o.animT;
+    /* flips (tier 3+): follow the jump, then finish the turn on landing */
+    const reduced = WW.settings && WW.settings.reducedMotion;
+    if (state.vx > 20) lastDir = 1; else if (state.vx < -20) lastDir = -1;
+    if (reduced) flipA = 0;
+    else if (!state.onGround && (state.jumpsUsed || 0) > 0) {
+      flipA = WW.math.damp(flipA, WW.flipAngle(charDef, state.vy, state.jumpsUsed, lastDir), 22, dt);
+    } else {
+      const full = Math.round(flipA / (Math.PI * 2)) * Math.PI * 2;
+      flipA = Math.abs(flipA - full) < 0.03 ? 0 : WW.math.damp(flipA, full, 26, dt);
+    }
+
     /* draw the spirit */
     const c = charCanvas.getContext('2d');
     c.clearRect(0, 0, charCanvas.width, charCanvas.height);
@@ -248,7 +353,7 @@ WW.Engine = (canvas) => {
           : state.onGround ? (Math.abs(state.vx) > 26 ? 'run' : 'idle')
           : (state.vy > 30 ? 'jump' : 'fall')),
       blink: state.blink, look: state.vx > 20 ? 'r' : state.vx < -20 ? 'l' : 'f',
-      wind: state.wind, squash: state.squash,
+      wind: state.wind, squash: state.squash, spin: flipA,
     });
     charTex.needsUpdate = true;
 
@@ -256,28 +361,32 @@ WW.Engine = (canvas) => {
     charHolder.position.y = state.y;
     charHolder.rotation.z = state.wind * -0.1;
     charMesh.scale.set(state.squash.x, state.squash.y, 1);
+    moveFx(state, dt, reduced || o.snap);
 
     /* moving hazards */
-    for (const { h, m } of pins) m.position.x = h.px;
-    for (const f of fans) f.m.rotation.z = now * 8;
+    for (const { h, m, sh } of pins) m.position.x = sh.position.x = h.px;
+    for (const f of fans) f.m.rotation.z = -now * 8;   // blades only
 
-    /* wind streaks: drift toward the player (downwind = leftwards) */
+    /* breeze: gusts/chevrons shoot out of the fan toward the player
+     * (leftwards), fading in and out across the push zone */
     for (const w of windStreaks) {
-      const t = (now * 1.1 + w.i * 0.33) % 1.5;
-      w.m.position.x = w.baseX - 150 * t;
-      w.m.material.opacity = 0.5 * Math.max(0, 1 - t / 1.5);
+      const t = ((now + w.phase) % w.period) / w.period;
+      w.m.position.x = w.baseX - w.reach * t;
+      w.m.position.y = w.baseY + Math.sin(now * 9 + w.phase * 7) * w.wob;
+      w.m.material.opacity = 0.95 * Math.sin(Math.PI * t);
     }
 
-    /* collectibles idle motion */
+    /* collectibles idle motion — bob + slight sway, always face-on */
+    const G = WW.Physics.GROUND_Y;
     for (const { s, m } of sparkPairs) {
       if (s.got) { m.visible = false; continue; }
-      m.rotation.z = now * 2;
-      m.position.y = s.y + Math.sin(now * 3 + s.x * 0.01) * 5;
+      m.rotation.z = Math.sin(now * 2.4 + s.x * 0.01) * 0.18;
+      m.position.y = G + s.y + Math.sin(now * 3 + s.x * 0.01) * 5;
     }
     for (const { g, m } of gemPairs) {
       if (g.got) { m.visible = false; continue; }
-      m.rotation.y = now * 2.4;
-      m.position.y = g.y + Math.sin(now * 2.2 + g.x * 0.012) * 6;
+      m.rotation.z = Math.sin(now * 2 + g.x * 0.012) * 0.14;
+      m.position.y = G + g.y + Math.sin(now * 2.2 + g.x * 0.012) * 6;
     }
     if (goalFlame && goalFlame.visible) {
       const pulse = WW.settings && WW.settings.reducedMotion ? 1 : 0.9 + Math.sin(now * 9) * 0.12;

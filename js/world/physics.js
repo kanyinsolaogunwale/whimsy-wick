@@ -13,6 +13,9 @@ const M = WW.math;
 
 const GROUND_Y = 96;          // standing height of feet above world bottom mark
 const BODY = { w: 40, h: 50 };
+/* fan breeze: how far in front of the fan it reaches, how high it blows,
+ * and the speed range (fraction of top speed) while leaning into it */
+const WIND = { reach: 220, height: 90, lean: [0.4, 0.5] };
 
 /* Tuning — dt in seconds. */
 const TUNE = {
@@ -32,12 +35,12 @@ const TUNE = {
   windHeld: 150,
 };
 
-WW.Physics = { GROUND_Y, BODY, TUNE, M };
+WW.Physics = { GROUND_Y, BODY, TUNE, M, WIND };
 
 /* ---------------------------------------------------------------- */
 WW.Physics.newState = (startX = 140) => ({
   x: startX, y: GROUND_Y, vx: 0, vy: 0,
-  onGround: true, jumping: false, jumpHeld: false,
+  onGround: true, jumping: false, jumpHeld: false, jumpsUsed: 0,
   coyote: 0, buffer: 0,
   facing: 'r', runPhase: 0,
   surface: 'dry',            // dry | butter | milk | jam
@@ -51,7 +54,15 @@ WW.Physics.newState = (startX = 140) => ({
 WW.Physics.tryJump = (s) => {
   if (s.onGround || s.coyote > 0) {
     s.vy = TUNE.jumpV; s.jumping = true; s.onGround = false; s.coyote = 0;
+    s.jumpsUsed = 1;
     s.squash.x = 0.78; s.squash.y = 1.26;
+    return true;
+  }
+  // double hop: one extra mid-air jump, slightly softer than the first
+  if ((s.jumpsUsed || 0) < 2) {
+    s.jumpsUsed = (s.jumpsUsed || 0) + 1;
+    s.vy = TUNE.jumpV * 0.92; s.onGround = false; s.coyote = 0;
+    s.squash.x = 0.82; s.squash.y = 1.2;
     return true;
   }
   s.buffer = TUNE.buffer;      // buffered for landing
@@ -98,17 +109,20 @@ WW.Physics.step = (s, input, world, dt) => {
     s.vx = Math.abs(s.vx) <= fr ? 0 : s.vx - Math.sign(s.vx) * fr;
   }
 
-  /* ---- fan wind (assignment §5.2) ---- */
-  let inWind = 0, windSign = -1;
+  /* ---- fan wind (assignment §5.2) ----
+   * Each fan blows back toward the player across the stretch in front of it,
+   * up to a little above fan height. It slows rather than blocks: hold
+   * forward to lean in and crawl through, or hop over the breeze. */
+  let inWind = 0;
   for (const h of world.hazards) {
     if (h.t !== 'fan') continue;
-    const zx = h.x - 60, zr = h.x + 320;      // breeze zone around + right of fan
-    if (s.x + BODY.w > zx - 20 && s.x < zr) inWind = 1;
+    const zl = h.x - WIND.reach, zr = h.x + (h.w ?? 60);
+    if (s.x + BODY.w > zl && s.x < zr && s.y < GROUND_Y + WIND.height) inWind = 1;
   }
   s.wind = M.damp(s.wind, inWind ? 1 : 0, 6, dt);
   if (inWind) {
-    const p = TUNE.wind + (input.move < 0 ? TUNE.windHeld : 0);
-    s.vx = windSign * p * (0.9 + s.wind * 0.6);
+    if (input.move > 0) s.vx = M.clamp(s.vx, top * WIND.lean[0], top * WIND.lean[1]);
+    else s.vx = Math.max(s.vx - TUNE.wind * 3 * dt, -TUNE.wind);   // drift back on the breeze
     if ((world.fanTick = (world.fanTick || 0) + dt) > 0.4) { world.fanTick = 0; ev.push({ k: 'windTick' }); }
   }
 
@@ -128,13 +142,14 @@ WW.Physics.step = (s, input, world, dt) => {
     const overlapX = s.x + BODY.w * 0.75 > p.x && s.x + BODY.w * 0.25 < topX2;
     const falling = s.vy <= 0;
     if (overlapX && falling && s.y >= topY - 6 && s.y - s.vy * dt <= topY + 2) {
-      s.y = topY; s.vy = 0; s.onGround = true; s.jumping = false;
+      s.y = topY; s.vy = 0; s.onGround = true; s.jumping = false; s.jumpsUsed = 0;
     } else if (s.vy <= 0 && s.onGround && overlapX && Math.abs(s.y - topY) < 12) {
       s.y = topY; // ride the platform
     }
   }
   if (s.y <= GROUND_Y) {
     // resolve to ground regardless of prior grounded state — never sink below (§5.1)
+    s.jumpsUsed = 0;                       // reset double hop on landing
     if (!wasGround && s.vy < -60) {
       s.squash.x = 1.24; s.squash.y = 0.78;   // landing squash
     }
@@ -210,12 +225,12 @@ WW.Physics.step = (s, input, world, dt) => {
   const cR = 46; // magnet radius
   for (let i = world.sparks.length - 1; i >= 0; i--) {
     const p = world.sparks[i];
-    if (!p.got && Math.hypot(p.x - (s.x + BODY.w / 2), p.y - (s.y + BODY.h / 2)) < cR) {
+    if (!p.got && Math.hypot(p.x - (s.x + BODY.w / 2), GROUND_Y + p.y - (s.y + BODY.h / 2)) < cR) {
       p.got = true; ev.push({ k: 'collect', what: 'spark', at: p });
     }
   }
   for (const g of world.gems) {
-    if (!g.got && Math.hypot(g.x - (s.x + BODY.w / 2), g.y - (s.y + BODY.h / 2)) < cR) {
+    if (!g.got && Math.hypot(g.x - (s.x + BODY.w / 2), GROUND_Y + g.y - (s.y + BODY.h / 2)) < cR) {
       g.got = true; ev.push({ k: 'collect', what: 'gem', at: g });
     }
   }

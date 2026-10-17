@@ -14,11 +14,13 @@ const fresh = () => ({
   v: 1,
   settings: { music: 0.7, sfx: 0.8, mute: false, gestureHints: true, reducedMotion: false },
   character: 'ghee',
+  owned: ['ghee'],                                  // spirits bought in the shop
   story: { completed: [], sparks: {}, gems: {} },   // by level id
   wallet: { coins: 0, gems: 0 },                    // earned currencies (future shop)
   tutorialDone: false,
   gestureHintDone: false,
-  endless: { best: 0, bestDistance: 0 },
+  endless: { best: 0, bestDistance: 0, runs: [] }, // runs: top 10 by score
+  stats: { coinsEarned: 0, gemsEarned: 0, runs: 0 }, // lifetime totals
   hintSeen: {},                                    // per-hazard hints learned
 });
 
@@ -42,11 +44,15 @@ WW.persist = {
     cur.settings = { ...f.settings, ...cur.settings };
     cur.story = { ...f.story, ...cur.story };
     cur.endless = { ...f.endless, ...cur.endless };
+    if (!Array.isArray(cur.endless.runs)) cur.endless.runs = [];
+    cur.stats = { ...f.stats, ...(cur.stats || {}) };
     cur.hintSeen = { ...f.hintSeen, ...(cur.hintSeen || {}) };
     cur.wallet = { coins: (cur.wallet && cur.wallet.coins) || 0, gems: (cur.wallet && cur.wallet.gems) || 0 };
     cur.tutorialDone = !!cur.tutorialDone;
     cur.gestureHintDone = !!cur.gestureHintDone;
-    cur.character = typeof cur.character === 'string' ? cur.character : f.character;
+    cur.owned = Array.isArray(cur.owned) ? cur.owned.filter(id => typeof id === 'string') : [];
+    if (!cur.owned.includes('ghee')) cur.owned.unshift('ghee');
+    cur.character = typeof cur.character === 'string' && cur.owned.includes(cur.character) ? cur.character : f.character;
     return cur;
   },
   save() { try { localStorage.setItem(KEY, JSON.stringify(cur)); } catch { /* storage off — game still fully playable */ } },

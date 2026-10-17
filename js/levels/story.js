@@ -17,7 +17,7 @@ const WW = window.WW;
 WW.STORY_LEVELS = [
   {
     id: 'sleepy-counter', name: 'The Sleepy Counter',
-    note: 'Magic woke Ghee at midnight — and scattered. Follow the sparks.',
+    note: 'Magic woke Ghee at midnight and scattered. Follow the coins.',
     length: 2600, theme: 'warm', parallax: 'window', platforms: true,
     goal: { x: 2520, caption: 'A little wick waits to be lit…' },
     decorations: ['window', 'shelf'],
@@ -27,8 +27,8 @@ WW.STORY_LEVELS = [
     platforms: [ { x: 880, w: 150, y: 96 }, { x: 1250, w: 130, y: 96 }, { x: 2050, w: 170, y: 96 } ],
     tutorial: [
       { tag: 'move',  title: 'Wake up, Ghee!',        text: 'Drag right (or press →) to tiptoe along the counter.' },
-      { tag: 'jump',  title: 'Hopping is easy',       text: 'Tap (or press Space) to hop. Flour is too messy to wade through — arc over it.' },
-      { tag: 'spark', title: 'Follow the glow',       text: 'Brush against sparks to gather them. Every one rekindles a bit of the kitchen.' },
+      { tag: 'jump',  title: 'Hopping is easy',       text: 'Tap (or press Space) to hop over flour. Tap again in mid-air for a second hop!' },
+      { tag: 'spark', title: 'Grab the coins',        text: 'Brush against coins to gather them. Bank them for keeps.' },
       { tag: 'goal',  title: 'Light the wick',        text: 'Reach the lantern at the end of the counter and give it your light.' },
     ],
   },
@@ -45,7 +45,7 @@ WW.STORY_LEVELS = [
     sparks: [380, 480, 620, 1300, 1400, 1520, 1750, 1850, 2260, 2380, 2480],
     gems: [2280],
     platforms: [ { x: 1350, w: 160, y: 100 }, { x: 2150, w: 150, y: 100 } ],
-    hints: { pin: 'Rolling pins patrol left-and-right — watch for the gap in their swing.' },
+    hints: { pin: 'Rolling pins patrol left and right. Watch for the gap in their swing.' },
   },
   {
     id: 'butter-slide', name: 'The Butter Slide',
@@ -61,10 +61,11 @@ WW.STORY_LEVELS = [
     gems: [1350],
     platforms: [ { x: 1000, w: 150, y: 96 }, { x: 1550, w: 150, y: 96 } ],
     hints: { butter: 'Butter is slippery! Skid, feather your steering, and jump while sliding.' },
+    // (no em dashes anywhere in game text)
   },
   {
     id: 'sticky-situation', name: 'The Sticky Situation',
-    note: 'A milk jug tipped; jam followed. The counter is a mess — a lovely one.',
+    note: 'A milk jug tipped; jam followed. The counter is a mess, a lovely one.',
     length: 2800, theme: 'milk', parallax: 'window',
     goal: { x: 2740, caption: 'Three wicks now burn warm…' },
     decorations: ['window', 'milk-crate'],
@@ -75,7 +76,7 @@ WW.STORY_LEVELS = [
     sparks: [420, 520, 620, 720, 820, 920, 1400, 1500, 1600, 2000, 2100, 2400],
     gems: [1000, 2010],
     platforms: [ { x: 1050, w: 150, y: 100 }, { x: 2350, w: 140, y: 96 } ],
-    hints: { milk: 'Milk grips less than butter — long, gentle skids.', jam: 'Jam is sticky! It slows Ghee down, so build up speed before it.' },
+    hints: { milk: 'Milk grips less than butter. Long, gentle skids.', jam: 'Jam is sticky! It slows Ghee down, so build up speed before it.' },
   },
   {
     id: 'last-spark', name: 'The Kitchen\u2019s Last Spark',
@@ -91,7 +92,7 @@ WW.STORY_LEVELS = [
     sparks: [420, 520, 620, 720, 820, 1000, 1250, 1450, 1650, 1850, 2050, 2250, 2450, 2650, 2850],
     gems: [1000, 1850, 2850],
     platforms: [ { x: 980, w: 140, y: 96 }, { x: 1900, w: 160, y: 100 }, { x: 2600, w: 140, y: 96 } ],
-    hints: { fan: 'A little fan breathes backwards! Lean into its breeze, or it carries Ghee away.' },
+    hints: { fan: 'A little fan blows against you! Hold forward to lean in, or hop over its breeze.' },
   },
 ];
 

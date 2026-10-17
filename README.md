@@ -24,8 +24,8 @@ Play: **https://whimsy-wick.start.ng** (after publishing)
   gesture hints, reduced-motion support.
 - **Keyboard** (← → / A D, Space / W ↑, Esc / P) and **touch gestures**
   (tap to jump, drag to move — no on-screen movement buttons).
-- **Original procedural audio** — gentle music-box loop and one-shot cues
-  with music/SFX volume + mute.
+- **Audio** — a looping CC0 lullaby for music (see Credits), procedural
+  one-shot sound cues, music/SFX volume + mute.
 - **start.ng integration** — player profile card, your start.ng character's
   colours tint your spirit's scarf/cap, and endless-mode bests save to the
   shared leaderboard.
@@ -34,8 +34,10 @@ Play: **https://whimsy-wick.start.ng** (after publishing)
 
 Plain HTML/CSS/JS + **Three.js** (r172, bundled locally) doing the actual
 rendering: orthographic camera, canvas-texture sprites, layered parallax
-kitchen. Everything — art and audio — is generated procedurally at runtime,
-so the repo stays tiny. No build step: open `index.html` and it runs.
+kitchen. All art and sound effects are generated procedurally at runtime;
+the only asset file is the music track. No build step: serve the folder
+(e.g. `python3 -m http.server`) and open it. Opening `index.html` straight
+from disk also runs, with procedural fallback music.
 
 ## Leaderboard columns (startng.json)
 
@@ -55,3 +57,10 @@ Run time (lowest, time format). Signed-in players only; guests can look.
     js/ui/ui.js         all screens
     js/game/            game controller, input, audio wiring, saves, start.ng
     tools/make_cover.py generates cover.png
+    assets/song17.mp3   background music (CC0)
+
+## Credits
+
+Music: "Happy Lullaby (song17)" by cynicmusic — The Cynic Project /
+cynicmusic.com / pixelsphere.org — released under CC0 on OpenGameArt:
+https://opengameart.org/content/happy-lullaby-song17

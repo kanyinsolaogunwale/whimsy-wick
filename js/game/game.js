@@ -74,11 +74,16 @@ WW.createGame = (canvas) => {
     runStats = { sparks: 0, coins: 0, gems: 0, sparksGround: cfg.sparks.length };
     resetState();
     ui.setHUD('story', cfg.name);
-    ui.hud.sparks(0); ui.hud.gems(0);
     ui.showNone(); ui.hud.show(true);
-    ui.hud.coins(0); ui.hud.gems(0); ui.hud.sparks(0);
+    ui.hud.coins(0); ui.hud.gems(0);
     maybeTutorial(cfg);
   };
+
+  /* Reward scale per level, mirrored from ui.js (what a clear pays). */
+  const STORY_REWARDS = [
+    { coins: 60, gems: 3 }, { coins: 80, gems: 4 }, { coins: 100, gems: 5 },
+    { coins: 120, gems: 6 }, { coins: 150, gems: 8 },
+  ];
 
   const buildEndless = () => {
     tutorial = null;
@@ -97,7 +102,7 @@ WW.createGame = (canvas) => {
     resetState();
     playMode = 'endless';
     ui.setHUD('endless', 'Endless Challenge');
-    ui.hud.sparks(0); ui.hud.coins(0); ui.hud.score(0); ui.hud.dist(0); ui.hud.time(0);
+    ui.hud.coins(0); ui.hud.score(0); ui.hud.dist(0); ui.hud.time(0);
     ui.showNone(); ui.hud.show(true);
     maybeHint('butter');
   };
@@ -111,6 +116,8 @@ WW.createGame = (canvas) => {
     paused = false;
     if (world) { world.t = 0; world.goalDone = false; for (const h of world.hazards) { h.hit = false; h.cleared = false; h.px = h.px ?? undefined; } }
   };
+
+  const shopInfo = () => ({ owned: data.owned, balance: data.wallet.coins, gems: data.wallet.gems, equipped: data.character });
 
   const applyCharTint = () => {
     const fresh = WW.CHARACTERS.find(c => c.id === data.character) || WW.CHARACTERS[0];
@@ -158,13 +165,13 @@ WW.createGame = (canvas) => {
 
   const HINTS = {
     foo: '',
-    pin: 'Rolling pins patrol back and forth — watch their swing, then dash!',
-    butter: 'Butter is slippery: light touches on the drag, and you can still hop mid-slide.',
-    milk: 'Milk is even slicker than butter — long, gentle slides.',
+    pin: 'Rolling pins patrol back and forth. Watch their swing, then dash!',
+    butter: 'Butter is slippery. Light touches on the drag, and you can still hop mid-slide.',
+    milk: 'Milk is even slicker than butter. Long, gentle slides.',
     jam: 'Jam is sticky! It clings and slows Ghee down.',
     jamdrop: 'Jam is sticky! It clings and slows Ghee down.',
-    fan: 'A little fan breathes against you — keep leaning into it.',
-    flour: 'Flour piles are too fluffy to wade through — hop over them.',
+    fan: 'A little fan blows against you. Lean in, or hop over the breeze.',
+    flour: 'Flour piles are too dusty to wade through. Hop over them.',
   };
   const maybeHint = (kind) => {
     if (!HINTS[kind]) return;
@@ -217,6 +224,36 @@ WW.createGame = (canvas) => {
   };
   const clearKeys = () => input.setEnabled(false);
 
+  /* Every run settles exactly once — win, lose, restart or quit: its coins
+   * and gems go into the ever-growing balances, and endless runs update the
+   * bests and the saved top-10 runs. */
+  const settleRun = (extraCoins = 0, extraGems = 0) => {
+    const s = runStats;
+    if (!s || s.settled) return null;
+    s.settled = true;
+    const earned = s.coins + s.sparks + extraCoins;
+    const gems = (s.gems || 0) + extraGems;
+    data.wallet.coins += earned;
+    data.wallet.gems += gems;
+    data.stats.coinsEarned += earned;
+    data.stats.gemsEarned += gems;
+    data.stats.runs += 1;
+    let newBest = false;
+    if (playMode === 'endless') {
+      newBest = s.score > (data.endless.best || 0);
+      data.endless.best = Math.max(data.endless.best || 0, s.score);
+      data.endless.bestDistance = Math.max(data.endless.bestDistance || 0, s.dist);
+      data.endless.runs.push({
+        score: s.score, dist: s.dist, coins: s.coins + s.sparks,
+        time: Math.round(s.time), char: data.character, at: Date.now(),
+      });
+      data.endless.runs.sort((a, b) => b.score - a.score);
+      data.endless.runs.length = Math.min(data.endless.runs.length, 10);
+    }
+    WW.persist.save();
+    return { earned, gems, newBest };
+  };
+
   const finishStoryWin = () => {
     engine.setPose('win');
     WW.Audio.play('win');
@@ -224,26 +261,28 @@ WW.createGame = (canvas) => {
     setTimeout(() => {
       const isLast = levelIdx === WW.STORY_LEVELS.length - 1;
       const cfg = WW.STORY_LEVELS[levelIdx];
-      if (!data.story.completed.includes(cfg.id)) {
-        data.story.completed.push(cfg.id);
-        data.story.sparks[cfg.id] = Math.max(data.story.sparks[cfg.id] || 0, runStats.sparks);
-        data.story.gems[cfg.id] = Math.max(data.story.gems[cfg.id] || 0, runStats.gems);
-      }
-      /* rewards: +5 gems per lit wick · coins banked · sparks ×1 as coins */
-      runStats.gems += 5;
-      data.wallet.coins += runStats.coins + runStats.sparks;
-      data.wallet.gems += 5;
-      WW.persist.save();
+      const firstClear = !data.story.completed.includes(cfg.id);
+      if (firstClear) data.story.completed.push(cfg.id);
+      data.story.sparks[cfg.id] = Math.max(data.story.sparks[cfg.id] || 0, runStats.sparks);
+      data.story.gems[cfg.id] = Math.max(data.story.gems[cfg.id] || 0, runStats.gems);
+      /* rewards: a fixed per-level clear bonus on top of the coins picked up */
+      const rew = STORY_REWARDS[levelIdx] || { coins: 100, gems: 5 };
+      const bonus = firstClear ? 1 : 0.4;           // replays pay 40%
+      const rewardCoins = Math.round(rew.coins * bonus);
+      const rewardGems = Math.round(rew.gems * bonus);
+      settleRun(rewardCoins, rewardGems);
       ui.renderStory(WW.STORY_LEVELS, data.story.completed, data.story.sparks);
       mode = 'result';
       WW.Audio.duckMusic(true);
       ui.hud.show(false);
       ui.showResult('story-complete', {
         sparks: runStats.sparks,
-        sparksGround: runStats.sparksGround,
-        coins: runStats.coins,
-        gems: runStats.gems,
-        gemsTotal: data.wallet.gems,
+        coins: runStats.coins + runStats.sparks,
+        rewardCoins,
+        rewardGems,
+        gemsPicked: runStats.gems,
+        balance: data.wallet.coins,
+        gemBalance: data.wallet.gems,
         flavour: cfg.goal.caption,
         last: isLast,
       });
@@ -258,14 +297,18 @@ WW.createGame = (canvas) => {
       mode = 'result';
       ui.hud.show(false);
       const flavour = {
-        flour: 'A pillow-soft mountain of flour — Ghee sneezed sparks everywhere. Hop OVER it next time.',
-        pin: 'A rolling pin! They roll to a rhythm — watch for the gap in the swing.',
+        flour: 'A pillow-soft mountain of flour. Ghee sneezed sparks everywhere! Hop over it next time.',
+        pin: 'A rolling pin rolled right into Ghee. They roll to a rhythm, so watch for the gap in the swing.',
         butter: 'The butter took Ghee for a skate. Steer gently while sliding.',
         milk: 'A long slide in the milk. Feather your movement next time.',
-        jamdrop: 'Stuck. Stickier than expected — build speed first!',
+        jamdrop: 'Stuck in the jam. It is sticky in there! Build up some speed first next time.',
         fan: 'The breeze carried Ghee far, far back…',
       }[why] || 'Ghee got a little lost.';
-      ui.showResult('story-fail', { flavour });
+      settleRun();
+      ui.showResult('story-fail', {
+        flavour, coins: runStats ? runStats.coins + runStats.sparks : 0, balance: data.wallet.coins,
+        gems: runStats ? runStats.gems || 0 : 0, gemBalance: data.wallet.gems,
+      });
     }, 1000);
   };
 
@@ -274,11 +317,11 @@ WW.createGame = (canvas) => {
     engine.setPose('lose');
     WW.Audio.duckMusic(true);
     const s = runStats;
-    const best = Math.max(data.endless.best || 0, s.score);
-    const newBest = s.score > (data.endless.best || 0);
-    data.endless.best = best;
-    data.endless.bestDistance = Math.max(data.endless.bestDistance || 0, s.dist);
-    WW.persist.save();
+    // the crash lands before this frame's tally, so finalise it first
+    s.dist = WW.Physics.metres(state.x);
+    s.score = s.sparks * 10 + s.coins + s.dist;
+    const { newBest } = settleRun() || { newBest: false };
+    const best = data.endless.best;
     if (WW.StartNG.signedIn()) {
       WW.StartNG.saveRun({
         score: s.score, sparks: s.sparks, distance: s.dist, time: Math.round(s.time),
@@ -294,7 +337,9 @@ WW.createGame = (canvas) => {
         ui.hud.show(false);
         ui.showResult('endless-over', {
           score: s.score, best, dist: s.dist, newBest,
-          coins: s.coins,
+          bestDist: data.endless.bestDistance,
+          coins: s.coins + s.sparks,
+          balance: data.wallet.coins,
           timeStr: fmtTime(s.time),
         });
       }, 1000);
@@ -329,21 +374,21 @@ WW.createGame = (canvas) => {
               runStats.sparks += 1;
               collectChainT = 0.9; collectChain = Math.min(collectChain + 1, 5);
               WW.Audio.play('collect', collectChain);
-              ui.hud.sparks(playMode === 'story' ? runStats.sparks : runStats.sparks);
-              engine.burst(e.at.x, e.at.y, 'collect');
+              ui.hud.coins(runStats.coins + runStats.sparks);
+              engine.burst(e.at.x, G + e.at.y, 'collect');
               if (playMode === 'endless') runStats.score = runStats.sparks * 10 + runStats.dist;
               stepTutorial('collect');
             } else {
               runStats.gems += 1;
               WW.Audio.play('gem');
               ui.hud.gems(runStats.gems);
-              engine.burst(e.at.x, e.at.y, 'gem');
+              engine.burst(e.at.x, G + e.at.y, 'gem');
             }
             break;
           }
           case 'clear':
             runStats.coins += 10;                       // +10 coins per obstacle passed (§5.3)
-            ui.hud.coins(runStats.coins);
+            ui.hud.coins(runStats.coins + runStats.sparks);
             WW.Audio.play('collect', 2);
             break;
           case 'slip': WW.Audio.play('slip'); break;
@@ -382,11 +427,7 @@ WW.createGame = (canvas) => {
         ui.hud.dist(runStats.dist);
         ui.hud.score(runStats.score);
         ui.hud.time(runStats.time);
-        ui.hud.sparks(runStats.sparks);
-        ui.hud.coins(runStats.coins);
-      } else {
-        const total = world.sparks.length;
-        ui.hud.progress(runStats.sparks, total);
+        ui.hud.coins(runStats.coins + runStats.sparks);
       }
     }
 
@@ -405,26 +446,60 @@ WW.createGame = (canvas) => {
     }
   });
 
+  /* Which screen each modal should return to when its X is pressed. */
+  const modalOwner = {
+    chars: () => 'title', howto: () => uiReturn, settings: () => uiReturn,
+    signin: () => 'title', story: () => 'title', records: () => 'title',
+  };
+
   const actions = {
-    'open-story': () => { ui.renderStory(WW.STORY_LEVELS, data.story.completed, data.story.sparks); ui.show('story'); mode = 'title'; },
+    'open-story': () => { ui.renderStory(WW.STORY_LEVELS, data.story.completed, data.story.sparks); ui.show('story'); mode = 'story-select'; },
+    'select-story': (i) => { ui.selectStory(i); mode = 'story-select'; },
     'start-endless': () => { playMode = 'endless'; buildEndless(); beginPlay(); },
     'play-level': (i) => { playMode = 'story'; buildStory(i); beginPlay(); },
-    'open-chars': () => { ui.charsTemp = data.character; ui.renderChars(WW.CHARACTERS, data.character); ui.show('chars'); mode = 'chars'; },
-    'pick-char': () => { ui.renderChars(WW.CHARACTERS, ui.charsTemp); },
+    'open-chars': () => { ui.renderChars(WW.CHARACTERS, data.character, shopInfo()); ui.show('chars'); mode = 'chars'; },
+    'pick-char': () => {},
     'chars-confirm': () => {
-      data.character = ui.charsTemp; WW.persist.save();
-      charDef = WW.CHARACTERS.find(c => c.id === data.character);
+      const def = WW.CHARACTERS.find(c => c.id === ui.charsTemp);
+      if (!def) return;
+      if (!data.owned.includes(def.id)) {
+        /* buy: coins first, gems top up any gap; unlock + equip, stay in the shop */
+        const pay = WW.payPlan(def.price, data.wallet.coins, data.wallet.gems);
+        if (!pay.ok) return;                              // button is disabled anyway
+        data.wallet.coins -= pay.coins;
+        data.wallet.gems -= pay.gems;
+        data.owned.push(def.id);
+        data.character = def.id; WW.persist.save();
+        charDef = def;
+        WW.Audio.play('win');
+        ui.renderChars(WW.CHARACTERS, def.id, shopInfo(), `${def.name} unlocked!`);
+        return;
+      }
+      data.character = def.id; WW.persist.save();
+      charDef = def;
       WW.Audio.play('gem');
       ui.show('title'); mode = 'title';
     },
+    'open-records': () => { ui.renderRecords(data); ui.show('records'); mode = 'records'; },
     'open-howto-title': () => { uiReturn = 'title'; ui.show('howto'); mode = 'howto'; },
     'open-howto-pause': () => { uiReturn = 'pause'; ui.show('howto'); mode = 'howto'; },
-    'howto-back': () => { ui.show(uiReturn); mode = uiReturn === 'pause' ? 'pause' : 'title'; },
     'open-settings-title': () => { uiReturn = 'title'; ui.renderSettings(WW.settings); ui.show('settings'); mode = 'settings'; },
     'open-settings-pause': () => { uiReturn = 'pause'; ui.renderSettings(WW.settings); ui.show('settings'); mode = 'settings'; },
-    'settings-back': () => {
-      ui.show(uiReturn); mode = uiReturn === 'pause' ? 'pause' : 'title';
-      WW.persist.save();
+    'signin-go': () => { WW.StartNG.signIn(); },
+    'ui-close': (target) => {
+      /* X button / backdrop click: return to wherever the modal was opened
+       * from. Closing the pause menu itself means "carry on playing". */
+      if (target === 'pause') { if (mode === 'pause') resume(); return; }
+      const back = (target === 'pause')
+        ? 'pause'
+        : (target === 'result') ? 'title'
+        : (target === 'ending') ? 'title'
+        : (modalOwner[target] ? modalOwner[target]() : 'title');
+      if (back === 'pause' && mode !== 'pause') { ui.show('pause'); return; }  // reopening pause: state intact
+      if (back === 'title' || back === 'ending') mode = (back === 'ending') ? 'ending' : 'title';
+      if (target === 'settings') WW.persist.save();
+      ui.show(back);
+      if (back !== 'pause') mode = back === 'title' ? 'title' : mode;
     },
     'set-setting': (kv) => {
       Object.assign(WW.settings, kv);
@@ -449,19 +524,23 @@ WW.createGame = (canvas) => {
     },
     'resume': resume,
     'restart': () => {
+      settleRun();
       ui.showNone(); ui.hud.show(true);
       if (playMode === 'story') buildStory(levelIdx); else buildEndless();
       beginPlay();
       WW.Audio.duckMusic(false);
     },
     'back-title': () => {
+      settleRun();
       mode = 'title'; playMode = null;
-      running = false; state = null; paused = false;
+      state = null; paused = false;
+      ui.stopHero();
       ui.hideTutorial(); ui.showGestureHint(false);
       ui.setHUD(null);
       input.setEnabled(false);
       WW.Audio.duckMusic(false);
       ui.show('title');
+      ui.startHero();
     },
     'pause': () => { if (mode === 'play') pause(true); },
     'result-primary': () => {
@@ -508,19 +587,23 @@ WW.createGame = (canvas) => {
   };
 
   ui.init(actions);
+  ui.setStatsSource(() => data);
   ui.renderSettings(WW.settings);
   ui.show('title');
   mode = 'title';
   raf = requestAnimationFrame(tick);
 
   /* keyboard pause + audio unlock */
+  /* first tap or key anywhere (home included) wakes audio and starts the
+   * music — browsers block sound until the player interacts */
+  const wakeAudio = () => { WW.Audio.unlock(); if (!WW.Audio.running) WW.Audio.musicOn(); };
   addEventListener('keydown', (e) => {
-    WW.Audio.unlock();
+    wakeAudio();
     if ((e.key === 'Escape' || e.key === 'p' || e.key === 'P') && (mode === 'play' || mode === 'pause')) {
       mode === 'play' ? pause(true) : resume();
     }
   }, { capture: true });
-  addEventListener('pointerdown', () => WW.Audio.unlock(), { capture: true });
+  addEventListener('pointerdown', wakeAudio, { capture: true });
 
   /* profile card */
   const refreshPlayer = async () => {

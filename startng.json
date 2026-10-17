@@ -2,7 +2,7 @@
   "leaderboard": {
     "stats": [
       { "key": "score", "label": "Score", "order": "highest" },
-      { "key": "sparks", "label": "Sparks gathered", "order": "highest" },
+      { "key": "sparks", "label": "Coins gathered", "order": "highest" },
       { "key": "distance", "label": "Distance (m)", "order": "highest" },
       { "key": "time", "label": "Run time", "order": "lowest", "format": "time" }
     ]
