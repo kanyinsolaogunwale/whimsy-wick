@@ -162,6 +162,7 @@ WW.UI = (() => {
       $('hud-score').classList.remove('hidden');
       $('hud-dist').classList.remove('hidden');
       $('hud-coins').classList.remove('hidden');
+      $('hud-gems').classList.remove('hidden');
     }
   };
   const hud = {
@@ -212,7 +213,7 @@ WW.UI = (() => {
     tiles.forEach((t, k) => t.classList.toggle('sel', k === i));
     detail.innerHTML = `
       <div class="sd-name">${L.name}</div>
-      <div class="sd-note">${L.note}</div>
+      <div class="sd-note">Light all five wicks to relight the kitchen. ${L.note}</div>
       <div class="story-reward-chip sd-reward">${IC.coin} ${done ? rew.coins + ' coins again' : rew.coins + ' coins'} &nbsp;·&nbsp; ${IC.gem} ${rew.gems} gems</div>
       <button class="btn btn-primary btn-play" id="story-play">Play level ${i + 1}</button>`;
     const playBtn = $('story-play');
@@ -346,26 +347,56 @@ WW.UI = (() => {
 
   /* ---------------- records modal ---------------- */
   const fmtClock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  const myName = () => (WW.player && WW.player.info && (WW.player.info.name || WW.player.info.nickname)) || 'Guest';
+  const renderLeaderboard = (entries, opts) => {
+    opts = opts || {};
+    const mine = opts.myRank;                       // { rank, score } when off-page
+    const list = entries.slice(0, 8);
+    if (mine && mine.rank > list.length) {
+      list.push({ name: myName(), score: mine.score, rank: mine.rank, me: true });
+    }
+    $('records-runs').innerHTML = list.map((e, i) => {
+      const rank = e.rank ?? i + 1;
+      const isMe = e.me || e.name === myName();
+      return `<tr class="${isMe ? 'me' : e.rank === 1 || i === 0 ? 'top' : ''}">` +
+        `<td>${rank}</td><td>${isMe ? '&#11088; ' : ''}${e.name || 'A spirit'}</td>` +
+        `<td>${fmtN(e.score)}</td><td>${e.dist ? fmtN(e.dist) + ' m' : ''}</td></tr>`;
+    }).join('');
+    const has = list.length > 0;
+    $('records-empty').classList.toggle('hidden', has);
+    document.querySelector('.records-table').classList.toggle('hidden', !has);
+  };
   const renderRecords = (d) => {
     const lit = d.story.completed.length, total = WW.STORY_LEVELS.length;
     $('records-summary').innerHTML =
-      stat(`${IC.coin} ${fmtN(d.wallet.coins)}`, 'Balance') +
       stat(`${IC.coin} ${fmtN(d.stats.coinsEarned)}`, 'Coins earned') +
-      stat(`${IC.gem} ${fmtN(d.wallet.gems)}`, 'Gems') +
       stat(`${IC.gem} ${fmtN(d.stats.gemsEarned)}`, 'Gems found') +
       stat(fmtN(d.endless.best), 'Best score') +
       stat(fmtN(d.endless.bestDistance) + ' m', 'Best distance') +
       stat(fmtN(d.stats.runs), 'Runs played') +
       stat(`${lit}/${total}`, 'Wicks lit');
-    const runs = d.endless.runs || [];
-    const name = (id) => (WW.CHARACTERS.find(c => c.id === id) || { name: '—' }).name;
-    const date = (t) => new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-    $('records-runs').innerHTML = runs.map((r, i) =>
-      `<tr class="${i === 0 ? 'top' : ''}"><td>${i + 1}</td><td>${fmtN(r.score)}</td><td>${fmtN(r.dist)} m</td>` +
-      `<td>${IC.coin}${fmtN(r.coins)}</td><td class="rc-opt">${fmtClock(r.time || 0)}</td>` +
-      `<td>${name(r.char)}</td><td class="rc-opt">${date(r.at)}</td></tr>`).join('');
-    $('records-empty').classList.toggle('hidden', runs.length > 0);
-    document.querySelector('.records-table').classList.toggle('hidden', runs.length === 0);
+    /* Leaderboard: live start.ng board when connected; personal bests as
+     * the offline fallback so the screen never feels empty for guests. */
+    $('records-empty').textContent = 'Loading the leaderboard…';
+    $('records-empty').classList.remove('hidden');
+    document.querySelector('.records-table').classList.add('hidden');
+    const fallback = () => {
+      $('records-empty').textContent = 'No scores on the board yet. Play Endless mode to set the first one!';
+      const runs = d.endless.runs || [];
+      renderLeaderboard(runs.map(r => ({ name: r.char && (WW.CHARACTERS.find(c => c.id === r.char) || { name: r.char }).name, score: r.score, dist: r.dist, me: true })), { myRank: null });
+    };
+    (WW.StartNG && WW.StartNG.leaderboard ? WW.StartNG.leaderboard(8) : Promise.resolve(null)).then((board) => {
+      if (board && board.length) {
+        /* append my row from my saved best when I'm not on the page */
+        let mine = null;
+        if (d.endless.best > 0) mine = { rank: (board[board.length - 1].rank ?? board.length) + 1, score: d.endless.best };
+        renderLeaderboard(board, { myRank: mine });
+      } else if (WW.StartNG && WW.StartNG.signedIn()) {
+        $('records-empty').textContent = 'No scores on the board yet — your first Endless run sets the pace!';
+      } else {
+        fallback();
+      }
+    }).catch(fallback);
   };
 
   const cleanResultButtons = () => {
@@ -379,29 +410,28 @@ WW.UI = (() => {
   const showResult = (kind, data) => {
     // kind: 'story-complete' | 'story-fail' | 'endless-over' | 'story-replay'
     cleanResultButtons();
+    $('result-settings')?.classList.remove('hidden');
     if (kind === 'endless-over') $('result-primary').setAttribute('aria-label', 'Run again');
     if (kind === 'endless-over') {
       $('result-title').textContent = data.newBest ? 'New record!' : 'Run over';
       $('result-flavour').textContent = data.newBest
         ? 'Ghee skated further through the sleeping kitchen than ever before.'
         : 'The kitchen is patient: every run still gathers a few loose coins home.';
+      /* one chip per stat: when a record was beaten the chip is labeled
+       * with its record name ("Best score"), otherwise the plain stat */
       $('result-stats').innerHTML =
-        stat(data.score, 'Score', data.newBest) +
-        stat(data.best, 'Best') +
-        stat(data.dist + ' m', 'Distance') +
-        stat((data.bestDist || 0) + ' m', 'Best distance') +
+        stat(data.score, data.newBest ? 'Best score' : 'Score', data.newBest) +
+        stat(data.dist + ' m', data.newBest ? 'Best distance' : 'Distance') +
         stat(data.timeStr, 'Time') +
         stat(`${IC.coin} +${data.coins}`, 'Coins earned') +
-        stat(`${IC.coin} ${fmtN(data.balance)}`, 'Balance');
+        (data.gems ? stat(`${IC.gem} +${data.gems}`, 'Gems found') : '');
       $('result-primary').classList.add('hidden');
     } else if (kind === 'story-fail') {
       $('result-title').textContent = 'Ghee tumbled!';
       $('result-flavour').textContent = data.flavour;
       $('result-stats').innerHTML =
         stat(`${IC.coin} +${data.coins || 0}`, 'Coins earned') +
-        (data.gems ? stat(`${IC.gem} +${data.gems}`, 'Gems found') : '') +
-        stat(`${IC.coin} ${fmtN(data.balance)}`, 'Balance') +
-        stat(`${IC.gem} ${fmtN(data.gemBalance)}`, 'Gems');
+        (data.gems ? stat(`${IC.gem} +${data.gems}`, 'Gems found') : '');
       $('result-primary').classList.add('hidden');
     } else {
       data.coins = data.coins || 0; data.gems = data.gems || 0;
@@ -409,11 +439,8 @@ WW.UI = (() => {
       $('result-flavour').textContent = data.flavour;
       const rewardCoins = data.rewardCoins || 0, rewardGems = data.rewardGems || 0;
       $('result-stats').innerHTML =
-        stat(`${IC.coin} ${rewardCoins}`, 'Coins earned') +
-        stat(`${IC.gem} ${rewardGems + (data.gemsPicked || 0)}`, 'Gems earned') +
-        stat(`${IC.coin} ${data.coins}`, 'Picked up') +
-        stat(`${IC.coin} ${fmtN(data.balance)}`, 'Balance') +
-        stat(`${IC.gem} ${fmtN(data.gemBalance)}`, 'Gems');
+        stat(`${IC.coin} ${(data.coins || 0) + rewardCoins}`, 'Coins earned') +
+        stat(`${IC.gem} ${rewardGems + (data.gemsPicked || 0)}`, 'Gems earned');
       if (data.last) {
         $('result-primary').classList.add('hidden');
       } else {
@@ -464,6 +491,7 @@ WW.UI = (() => {
     btn('pause-menu', 'back-title');
     btn('result-primary', 'result-primary');
     btn('result-replay', 'result-replay');
+    btn('result-settings', 'open-settings-result');
     btn('result-menu', 'back-title');
     btn('ending-menu', 'back-title');
     btn('set-replay-tutorial', 'replay-tutorial');

@@ -2,6 +2,8 @@
  * Whimsy Wick — js/world/physics.js
  * ---------------------------------------------------------------
  * Live gameplay state + frame-rate independent simulation (assignment §5).
+ * Auto-runner: Ghee always trots forward on their own, so the screen
+ * scrolls itself and the only control is hopping (§9 gestures).
  * World-units; design height 540, ground top at GROUND_Y (from bottom).
  *
  * Exposed as WW.Physics.newState / step / helpers used by game.js.
@@ -29,7 +31,6 @@ const TUNE = {
   coyote: 0.09,
   buffer: 0.12,
   slipFriction: { dry: 26, butter: 2.4, milk: 1.6, jam: 9 },
-  slipPush: { butter: 150, milk: 190 },   // idle drift u/s
   jamMax: 0.45,       // speed multiplier inside jam
   wind: 170,
   windHeld: 150,
@@ -70,7 +71,7 @@ WW.Physics.tryJump = (s) => {
 };
 
 /**
- * One physics step. Input snapshot: { move:-1..1 (analog-ish), jumpHeld }.
+ * One physics step. Input snapshot: { jumpHeld } (movement is automatic).
  *Hazards+world: { hazards, sparks, gems, platforms, length, goal }
  * Returns events array: jump/land/collect/slip/crash/windTick/hitGoal…
  */
@@ -88,31 +89,21 @@ WW.Physics.step = (s, input, world, dt) => {
             : jam ? 'jam' : 'dry';
   if (s.surface !== 'dry' && prevSurf === 'dry') ev.push({ k: 'slip', s: s.surface });
 
-  /* ---- horizontal intent ---- */
+  /* ---- horizontal intent (auto-runner) ----
+   * Ghee always runs forward; the player only hops. Slick surfaces ease
+   * the drive out (butter/milk glide on longer), jam clamps the pace. */
   const f = TUNE.slipFriction[s.surface] ?? TUNE.slipFriction.dry;
-  let want = input.move;                                  // -1..1
-  if (s.surface === 'jam') want *= TUNE.jamMax;
   const top = (s.onGround ? TUNE.run : TUNE.air) * (s.surface === 'jam' ? TUNE.jamMax : 1);
-  const acc = want !== 0 ? (s.onGround ? f * 30 : 90) : 0;
-  if (want !== 0) s.vx += want * acc * dt;
-  const boost = s.surface === 'butter' && want !== 0 ? 1.12
-              : s.surface === 'milk' && want !== 0 ? 1.2 : 1;
+  const acc = s.onGround ? f * 30 : 90;
+  s.vx += acc * dt;                                       // steady trot
+  const boost = s.surface === 'butter' ? 1.12
+              : s.surface === 'milk' ? 1.2 : 1;
   s.vx = M.clamp(s.vx, -top * boost, top * boost);
-
-  // idle drift on slick surfaces
-  if (s.onGround && s.surface === 'butter' && want === 0) s.vx += TUNE.slipPush.butter * dt;
-  if (s.onGround && s.surface === 'milk' && want === 0) s.vx += TUNE.slipPush.milk * dt;
-
-  // ground friction toward zero
-  if (want === 0 && s.onGround) {
-    const fr = f * dt * 8;
-    s.vx = Math.abs(s.vx) <= fr ? 0 : s.vx - Math.sign(s.vx) * fr;
-  }
 
   /* ---- fan wind (assignment §5.2) ----
    * Each fan blows back toward the player across the stretch in front of it,
-   * up to a little above fan height. It slows rather than blocks: hold
-   * forward to lean in and crawl through, or hop over the breeze. */
+   * up to a little above fan height. The breeze clamps the trot to a crawl;
+   * hop over it to keep pace. */
   let inWind = 0;
   for (const h of world.hazards) {
     if (h.t !== 'fan') continue;
@@ -121,8 +112,7 @@ WW.Physics.step = (s, input, world, dt) => {
   }
   s.wind = M.damp(s.wind, inWind ? 1 : 0, 6, dt);
   if (inWind) {
-    if (input.move > 0) s.vx = M.clamp(s.vx, top * WIND.lean[0], top * WIND.lean[1]);
-    else s.vx = Math.max(s.vx - TUNE.wind * 3 * dt, -TUNE.wind);   // drift back on the breeze
+    s.vx = M.clamp(s.vx, top * WIND.lean[0], top * WIND.lean[1]);
     if ((world.fanTick = (world.fanTick || 0) + dt) > 0.4) { world.fanTick = 0; ev.push({ k: 'windTick' }); }
   }
 

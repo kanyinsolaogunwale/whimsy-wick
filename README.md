@@ -22,8 +22,10 @@ Play: **https://whimsy-wick.start.ng** (after publishing)
   save for future features.
 - **First-run tutorial** with replay from settings, per-hazard hints,
   gesture hints, reduced-motion support.
-- **Keyboard** (← → / A D, Space / W ↑, Esc / P) and **touch gestures**
-  (tap to jump, drag to move — no on-screen movement buttons).
+- **Auto-runner controls** — Ghee runs forward on their own, so hopping is
+  the one skill: **Keyboard** Space / ↑ / W (Esc / P pause) and **touch**
+  tap to hop, hold for a higher hop, tap again mid-air for a double hop —
+  no on-screen movement buttons and no dragging.
 - **Audio** — a looping CC0 lullaby for music (see Credits), procedural
   one-shot sound cues, music/SFX volume + mute.
 - **start.ng integration** — player profile card, your start.ng character's

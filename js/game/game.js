@@ -89,20 +89,20 @@ WW.createGame = (canvas) => {
     tutorial = null;
     ui.hideTutorial();
     const rng = WW.rng((Date.now() >>> 10) % 99991);
-    const L = 26000;
-    const hazards = WW.generateEndless(L, rng).map(normHaz);
+    const L = 26000;    const hazards = WW.generateEndless(L, rng).map(normHaz);
     const sparks = WW.generateEndlessSparks(L, rng).map(x => ({ x, y: 34 + Math.floor(Math.abs(Math.sin(x * 0.017)) * 190), got: false }));
+    const gems = WW.generateEndlessGems(L, rng).map(x => ({ x, y: gemY(x, []), got: false, kind: 'gem' }));
     world = {
-      length: L, platforms: [], hazards, sparks, gems: [],
+      length: L, platforms: [], hazards, sparks, gems,
       goal: null, t: 0,
     };
     engine.build({ world, theme: rng() < 0.5 ? 'night' : 'flour', charDef, rows: ['window'], startX: 140 });
     applyCharTint();
-    runStats = { sparks: 0, coins: 0, time: 0, dist: 0, score: 0 };
+    runStats = { sparks: 0, coins: 0, gems: 0, time: 0, dist: 0, score: 0 };
     resetState();
     playMode = 'endless';
     ui.setHUD('endless', 'Endless Challenge');
-    ui.hud.coins(0); ui.hud.score(0); ui.hud.dist(0); ui.hud.time(0);
+    ui.hud.coins(0); ui.hud.gems(0); ui.hud.score(0); ui.hud.dist(0); ui.hud.time(0);
     ui.showNone(); ui.hud.show(true);
     maybeHint('butter');
   };
@@ -165,12 +165,12 @@ WW.createGame = (canvas) => {
 
   const HINTS = {
     foo: '',
-    pin: 'Rolling pins patrol back and forth. Watch their swing, then dash!',
-    butter: 'Butter is slippery. Light touches on the drag, and you can still hop mid-slide.',
-    milk: 'Milk is even slicker than butter. Long, gentle slides.',
+    pin: 'Rolling pins patrol back and forth. Watch their swing, then hop at the right moment!',
+    butter: 'Butter is slippery! Ghee glides through it. Hop over what lies ahead in the slide.',
+    milk: 'Milk is even slicker than butter. Ghee zooms through, so hop early when trouble shows.',
     jam: 'Jam is sticky! It clings and slows Ghee down.',
     jamdrop: 'Jam is sticky! It clings and slows Ghee down.',
-    fan: 'A little fan blows against you. Lean in, or hop over the breeze.',
+    fan: 'A little fan holds Ghee to a crawl. Hop over its breeze!',
     flour: 'Flour piles are too dusty to wade through. Hop over them.',
   };
   const maybeHint = (kind) => {
@@ -244,7 +244,7 @@ WW.createGame = (canvas) => {
       data.endless.best = Math.max(data.endless.best || 0, s.score);
       data.endless.bestDistance = Math.max(data.endless.bestDistance || 0, s.dist);
       data.endless.runs.push({
-        score: s.score, dist: s.dist, coins: s.coins + s.sparks,
+        score: s.score, dist: s.dist, coins: s.coins + s.sparks, gems: s.gems || 0,
         time: Math.round(s.time), char: data.character, at: Date.now(),
       });
       data.endless.runs.sort((a, b) => b.score - a.score);
@@ -298,11 +298,11 @@ WW.createGame = (canvas) => {
       ui.hud.show(false);
       const flavour = {
         flour: 'A pillow-soft mountain of flour. Ghee sneezed sparks everywhere! Hop over it next time.',
-        pin: 'A rolling pin rolled right into Ghee. They roll to a rhythm, so watch for the gap in the swing.',
-        butter: 'The butter took Ghee for a skate. Steer gently while sliding.',
-        milk: 'A long slide in the milk. Feather your movement next time.',
-        jamdrop: 'Stuck in the jam. It is sticky in there! Build up some speed first next time.',
-        fan: 'The breeze carried Ghee far, far back…',
+        pin: 'A rolling pin rolled right into Ghee. They roll to a rhythm, so watch the swing and hop at the right moment.',
+        butter: 'The butter took Ghee for a skate. Ghee glides through it, so watch what lies ahead and hop in time.',
+        milk: 'A long slide in the milk. Ghee zooms through it, so hop early when trouble shows.',
+        jamdrop: 'Stuck in the jam. It is sticky in there! Ghee slows right down inside, so keep the hops coming.',
+        fan: 'The breeze held Ghee to a crawl. Hop over the fan next time!',
       }[why] || 'Ghee got a little lost.';
       settleRun();
       ui.showResult('story-fail', {
@@ -438,7 +438,12 @@ WW.createGame = (canvas) => {
   /* -------------------------------------------------------
    *  wiring
    * ------------------------------------------------------- */
-  input.onJump(() => { WW.Audio.unlock(); if (mode === 'play' && !paused) WW.Physics.tryJump(state); });
+  input.onJump(() => {
+    WW.Audio.unlock();
+    if (mode === 'play' && !paused) {
+      if (WW.Physics.tryJump(state)) stepTutorial('jump');   // real hop advances the tutorial
+    }
+  });
   input.onAny((what) => {
     if (what === 'blur' && mode === 'play') pause(false);
     if (what === 'focus') {
@@ -449,7 +454,7 @@ WW.createGame = (canvas) => {
   /* Which screen each modal should return to when its X is pressed. */
   const modalOwner = {
     chars: () => 'title', howto: () => uiReturn, settings: () => uiReturn,
-    signin: () => 'title', story: () => 'title', records: () => 'title',
+    signin: () => 'title', story: () => 'title', records: () => 'title', result: () => 'title',
   };
 
   const actions = {
@@ -485,6 +490,7 @@ WW.createGame = (canvas) => {
     'open-howto-pause': () => { uiReturn = 'pause'; ui.show('howto'); mode = 'howto'; },
     'open-settings-title': () => { uiReturn = 'title'; ui.renderSettings(WW.settings); ui.show('settings'); mode = 'settings'; },
     'open-settings-pause': () => { uiReturn = 'pause'; ui.renderSettings(WW.settings); ui.show('settings'); mode = 'settings'; },
+    'open-settings-result': () => { uiReturn = 'result'; ui.renderSettings(WW.settings); ui.show('settings'); mode = 'settings'; },
     'signin-go': () => { WW.StartNG.signIn(); },
     'ui-close': (target) => {
       /* X button / backdrop click: return to wherever the modal was opened
@@ -496,6 +502,7 @@ WW.createGame = (canvas) => {
         : (target === 'ending') ? 'title'
         : (modalOwner[target] ? modalOwner[target]() : 'title');
       if (back === 'pause' && mode !== 'pause') { ui.show('pause'); return; }  // reopening pause: state intact
+      if (back === 'result') mode = 'result';
       if (back === 'title' || back === 'ending') mode = (back === 'ending') ? 'ending' : 'title';
       if (target === 'settings') WW.persist.save();
       ui.show(back);

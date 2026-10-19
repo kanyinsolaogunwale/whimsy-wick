@@ -26,8 +26,7 @@ WW.STORY_LEVELS = [
     gems: [950, 1770],
     platforms: [ { x: 880, w: 150, y: 96 }, { x: 1250, w: 130, y: 96 }, { x: 2050, w: 170, y: 96 } ],
     tutorial: [
-      { tag: 'move',  title: 'Wake up, Ghee!',        text: 'Drag right (or press →) to tiptoe along the counter.' },
-      { tag: 'jump',  title: 'Hopping is easy',       text: 'Tap (or press Space) to hop over flour. Tap again in mid-air for a second hop!' },
+      { tag: 'jump',  title: 'Wake up, Ghee!',        text: 'Ghee trots along the counter on their own. Tap (or press Space) to hop over flour, and tap again in mid-air for a second hop!' },
       { tag: 'spark', title: 'Grab the coins',        text: 'Brush against coins to gather them. Bank them for keeps.' },
       { tag: 'goal',  title: 'Light the wick',        text: 'Reach the lantern at the end of the counter and give it your light.' },
     ],
@@ -92,7 +91,7 @@ WW.STORY_LEVELS = [
     sparks: [420, 520, 620, 720, 820, 1000, 1250, 1450, 1650, 1850, 2050, 2250, 2450, 2650, 2850],
     gems: [1000, 1850, 2850],
     platforms: [ { x: 980, w: 140, y: 96 }, { x: 1900, w: 160, y: 100 }, { x: 2600, w: 140, y: 96 } ],
-    hints: { fan: 'A little fan blows against you! Hold forward to lean in, or hop over its breeze.' },
+    hints: { fan: 'A little fan holds Ghee to a crawl! Hop over its breeze.' },
   },
 ];
 
@@ -148,6 +147,18 @@ WW.generateEndlessSparks = (targetX, rng) => {
   for (let x = 420; x < targetX; x += 240 + Math.floor(rng() * 90)) {
     const hop = rng() < .35;
     out.push(x, x + 48, x + 24 + (hop ? 0 : 24));
+  }
+  return out;
+};
+
+/**
+ * Endless gems: rare high-value pickups worth hopping for — one every
+ * ~900u on average (≈28 Per 26000u run), placed above the spark line.
+ */
+WW.generateEndlessGems = (targetX, rng) => {
+  const out = [];
+  for (let x = 900; x < targetX; x += 760 + Math.floor(rng() * 280)) {
+    out.push(x);
   }
   return out;
 };
