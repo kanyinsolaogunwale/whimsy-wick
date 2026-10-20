@@ -410,9 +410,20 @@ WW.UI = (() => {
     $('result-replay').setAttribute('aria-label', 'Retry level');
   };
 
+  /* start.ng game standard: every round ends with a chance to share the
+   * result on X via a twitter.com/intent/tweet link. */
+  const showShare = (text) => {
+    const a = $('result-share');
+    const url = 'https://whimsy-wick.start.ng';
+    a.href = `https://twitter.com/intent/tweet?${new URLSearchParams({ text: `${text} ${url}` })}`;
+    a.classList.remove('hidden');
+  };
+  const hideShare = () => $('result-share').classList.add('hidden');
+
   const showResult = (kind, data) => {
     // kind: 'story-complete' | 'story-fail' | 'endless-over' | 'story-replay'
     cleanResultButtons();
+    hideShare();
     $('result-settings')?.classList.remove('hidden');
     if (kind === 'endless-over') $('result-primary').setAttribute('aria-label', 'Run again');
     if (kind === 'endless-over') {
@@ -429,9 +440,11 @@ WW.UI = (() => {
         stat(`${IC.coin} +${data.coins}`, 'Coins earned') +
         (data.gems ? stat(`${IC.gem} +${data.gems}`, 'Gems found') : '');
       $('result-primary').classList.add('hidden');
+      showShare(`I scored ${data.score} in Whimsy Wick (distance ${data.dist} m)!`);
     } else if (kind === 'story-fail') {
       $('result-title').textContent = 'Ghee tumbled!';
       $('result-flavour').textContent = data.flavour;
+      showShare('Ghee just tumbled in Whimsy Wick! Come hop the counter yourself.');
       $('result-stats').innerHTML =
         stat(`${IC.coin} +${data.coins || 0}`, 'Coins earned') +
         (data.gems ? stat(`${IC.gem} +${data.gems}`, 'Gems found') : '');
@@ -446,8 +459,10 @@ WW.UI = (() => {
         stat(`${IC.gem} ${rewardGems + (data.gemsPicked || 0)}`, 'Gems earned');
       if (data.last) {
         $('result-primary').classList.add('hidden');
+        showShare('All wicks lit! I finished the story of Whimsy Wick.');
       } else {
         $('result-primary').classList.remove('hidden');
+        showShare(`Wick lit! I gathered ${(data.coins || 0) + (data.rewardCoins || 0)} coins in Whimsy Wick.`);
       }
     }
     show('result');
