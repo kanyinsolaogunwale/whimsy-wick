@@ -26,9 +26,12 @@ WW.STORY_LEVELS = [
     gems: [950, 1770],
     platforms: [ { x: 880, w: 150, y: 96 }, { x: 1250, w: 130, y: 96 }, { x: 2050, w: 170, y: 96 } ],
     tutorial: [
-      { tag: 'jump',  title: 'Wake up, Ghee!',        text: 'Ghee trots along the counter on their own. Tap (or press Space) to hop over flour, and tap again in mid-air for a second hop!' },
-      { tag: 'spark', title: 'Grab the coins',        text: 'Brush against coins to gather them. Bank them for keeps.' },
-      { tag: 'goal',  title: 'Light the wick',        text: 'Reach the lantern at the end of the counter and give it your light.' },
+      { tag: 'jump',  title: 'Hop the flour pile!',   prompt: 'Tap (or Space) to hop over the flour', gate: 640,
+        text: 'Flour piles are too dusty to wade through. Tap to hop over them, and tap again in mid-air for a second hop!' },
+      { tag: 'spark', title: 'Grab the coins',        prompt: 'Hop up to the shelf coins and grab them', gate: 790,
+        text: 'Brush against coins to gather them. Bank them for keeps.' },
+      { tag: 'goal',  title: 'Light the wick',        prompt: 'Reach the lantern at the end', gate: 2300,
+        text: 'Reach the lantern at the end of the counter and give it your light.' },
     ],
   },
   {

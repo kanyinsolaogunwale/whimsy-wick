@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="./css/main.css?v=3" />
+<link rel="stylesheet" href="./css/main.css?v=6" />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='18' r='11' fill='%23ffd66b'/><circle cx='16' cy='16' r='9' fill='%23ffedb0'/></svg>" />
 </head>
 <body>
@@ -44,12 +44,13 @@
   </div>
 </div>
 
-<!-- tutorial card (screen-centred) -->
+<!-- tutorial card (rides along with the run; each page clears on its action) -->
 <div id="tutorial" class="ui-block hidden">
   <div class="bubble">
     <b id="tut-title">Wake up, Ghee!</b>
     <span id="tut-text">Ghee trots along the counter on their own.</span>
-    <span id="tut-step" class="tut-step">1 / 4</span>
+    <span id="tut-tap" class="tut-tap"></span>
+    <span id="tut-step" class="tut-step">1 / 3</span>
   </div>
 </div>
 
@@ -156,8 +157,8 @@
         </div>
         <div class="howto-box">
           <h3>Collect</h3>
-          <p><b><span class="ic-coin"></span> Coins</b> line the counter. Bank them for keeps.</p>
-          <p><b><span class="ic-gem"></span> Gems</b> hide up high and are worth a detour. In the shop, each gem tops up 20 coins.</p>
+          <p><b><svg class="hud-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#ffe08a" stroke="#b8791f" stroke-width="2.4"/><path d="M12 8.2l1.1 2.2 2.4.3-1.8 1.8.5 2.4-2.2-1.2-2.2 1.2.5-2.4-1.8-1.8 2.4-.3z" fill="#c98a1e" opacity=".85"/></svg> Coins</b> line the counter. Bank them for keeps.</p>
+          <p><b><svg class="hud-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l7 5.2-2.4 10H7.4L5 7.8z" fill="#d5c6f5" stroke="#8f74c9" stroke-width="2.2" stroke-linejoin="round"/><path d="M9.6 7.8l2.4 10 2.4-10-2.4-3.4z" fill="#a98fd9" opacity=".6"/></svg> Gems</b> hide up high and are worth a detour. In the shop, each gem tops up 20 coins.</p>
         </div>
         <div class="howto-box">
           <h3>Watch out</h3>
@@ -325,6 +326,6 @@
   </section>
 </div>
 
-<script type="module" src="./js/main.js"></script>
+<script type="module" src="./js/main.js?v=6"></script>
 </body>
 </html>

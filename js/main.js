@@ -7,20 +7,19 @@
 import * as THREE from '../lib/three.module.min.js';
 window.THREE = THREE;
 
-import './base/core.js';
-import './world/art.js';
-import './characters/define.js';
-
-import './world/art.js';           // (idempotent — cached textures)
-import './world/physics.js';
-import './levels/story.js';
-import './game/input.js';
-import './sound/audio.js';
-import './game/persist.js';
-import './game/startng.js';
-import './render/engine.js';
-import './ui/ui.js';
-import './game/game.js';
+/* ?v=6 cache-bust: the browser must re-fetch the edited modules. */
+import './base/core.js?v=6';
+import './world/art.js?v=6';
+import './characters/define.js?v=6';
+import './world/physics.js?v=6';
+import './levels/story.js?v=6';
+import './game/input.js?v=6';
+import './sound/audio.js?v=6';
+import './game/persist.js?v=6';
+import './game/startng.js?v=6';
+import './render/engine.js?v=6';
+import './ui/ui.js?v=6';
+import './game/game.js?v=6';
 
 window.__game = window.WW.createGame(document.getElementById('game'));
 window.__booted = true;

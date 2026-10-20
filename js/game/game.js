@@ -130,35 +130,49 @@ WW.createGame = (canvas) => {
     }
   };
   const levelCfgTheme = () => levelCfg ? levelCfg.theme : 'night';
-  const currentRows = () => levelCfg ? (levelCfg.decorations || []) : ['window'];
-
-  /* -------------------------------------------------------
-   *  tutorial + hints
-   * ------------------------------------------------------- */
+  const currentRows = () => levelCfg ? (levelCfg.decorations || []) : ['window'];  /* -------------------------------------------------------
+   *  tutorial + hints — gate-driven: the guide card only appears when
+   *  Ghee reaches the next obstacle, names the action to pass it, and
+   *  vanishes the instant she performs it (hop / coin / wick). Between
+   *  gates she still trots on her own, but at each gate the tutorial
+   *  holds her in place so the run waits for the player's action.
+   *  (tester feedback: no auto-run through unhinted risks, and the
+   *  old "Wake up, Ghee!" card made no sense — she's already awake.) */
   const maybeTutorial = (cfg) => {
     tutorial = null;
-    if (playMode === 'endless' || playMode === 'story' && levelIdx !== 0 && !tutorialForced) { /* only first story level */ }
+    ui.hideTutorial();                 // the first card only shows at the first gate
     if (tutorialForced || (!data.tutorialDone && playMode === 'story' && levelIdx === 0)) {
-      tutorial = { steps: cfg.tutorial, i: 0, active: true };
+      tutorial = { steps: cfg.tutorial, i: 0, active: true, gateShown: new Set(), cardUp: false };
       tutorialForced = false;
-      ui.setTutorialText(cfg.tutorial[0].title, cfg.tutorial[0].text);
-      ui.setTutorial(0, cfg.tutorial.length);
     }
   };
+  /* Each tick while the tutorial runs: when Ghee arrives at the active
+   * page's gate she pauses there and the card for that action shows. */
+  const tutGateCheck = () => {
+    if (!tutorial || !tutorial.active || !state || state.hold || !state.onGround) return;
+    const step = tutorial.steps[tutorial.i];
+    if (step && step.gate && state.x >= step.gate && !tutorial.gateShown.has(tutorial.i)) {
+      tutorial.gateShown.add(tutorial.i);
+      state.hold = true;
+      tutorial.cardUp = true;          // only THIS card's action counts while it shows
+      ui.setTutorialText(step.title, step.text, step.prompt);
+      ui.setTutorial(tutorial.i, tutorial.steps.length);
+    }
+  };
+  /* One action at a time: a step completes only when its named action is
+   * performed while that step's card is showing. Stray hops/coins picked
+   * up between gates never advance or skip a card. */
   const stepTutorial = (ev) => {
-    if (!tutorial || !tutorial.active) return;
-    const tagMap = { moved: 'move', jump: 'jump', collect: 'spark', goal: 'goal' };
+    if (!tutorial || !tutorial.active || !tutorial.cardUp) return;
+    const tagMap = { jump: 'jump', collect: 'spark', goal: 'goal' };
     const step = tutorial.steps[tutorial.i];
     if (tagMap[ev] === step.tag) {
+      tutorial.cardUp = false;
+      ui.hideTutorial();               // popup leaves the moment the action is done
       tutorial.i += 1;
       if (tutorial.i >= tutorial.steps.length) {
         tutorial.active = false;
-        ui.hideTutorial();
         data.tutorialDone = true; WW.persist.save();
-      } else {
-        const nx = tutorial.steps[tutorial.i];
-        ui.setTutorialText(nx.title, nx.text);
-        ui.setTutorial(tutorial.i, tutorial.steps.length);
       }
     }
   };
@@ -195,9 +209,7 @@ WW.createGame = (canvas) => {
     mode = 'play'; running = true; paused = false;
     input.setEnabled(true);
     WW.Audio.musicOn();
-    if (WW.settings.gestureHints !== false && playMode === 'endless' && !data.gestureHintDone) {
-      ui.showGestureHint(true);
-    } else if (WW.settings.gestureHints !== false && playMode === 'story' && levelIdx === 0 && !data.gestureHintDone) {
+    if (WW.settings.gestureHints !== false && !data.gestureHintDone && !(tutorial && tutorial.active)) {
       ui.showGestureHint(true);
     }
   };
@@ -361,6 +373,7 @@ WW.createGame = (canvas) => {
       world.t += dtReal;
       if (runStats && playMode === 'endless') runStats.time += dtReal;
 
+      tutGateCheck();
       const evs = WW.Physics.step(state, input.st, world, dtReal);
       for (const e of evs) {
         switch (e.k) {
@@ -405,6 +418,7 @@ WW.createGame = (canvas) => {
           }
           case 'goal': {
             if (tutorial && tutorial.active) { tutorial.active = false; ui.hideTutorial(); data.tutorialDone = true; WW.persist.save(); }
+            if (state) state.hold = false;
             if (mode !== 'play') break;
             mode = 'winning';
             engine.lightGoal();
@@ -413,7 +427,6 @@ WW.createGame = (canvas) => {
             break;
           }
         }
-        if (e.k === 'moved') { stepTutorial('moved'); continue; }
         if (e.k !== 'moved') proximityHints();
       }
 
@@ -440,9 +453,9 @@ WW.createGame = (canvas) => {
    * ------------------------------------------------------- */
   input.onJump(() => {
     WW.Audio.unlock();
-    if (mode === 'play' && !paused) {
-      if (WW.Physics.tryJump(state)) stepTutorial('jump');   // real hop advances the tutorial
-    }
+    if (mode !== 'play' || paused || !state) return;
+    if (state.hold) { state.hold = false; return; }   // tap at a gate: resume the run, the action comes next
+    if (WW.Physics.tryJump(state)) stepTutorial('jump');
   });
   input.onAny((what) => {
     if (what === 'blur' && mode === 'play') pause(false);
@@ -542,6 +555,7 @@ WW.createGame = (canvas) => {
       mode = 'title'; playMode = null;
       state = null; paused = false;
       ui.stopHero();
+      input.setEnabled(false);
       ui.hideTutorial(); ui.showGestureHint(false);
       ui.setHUD(null);
       input.setEnabled(false);

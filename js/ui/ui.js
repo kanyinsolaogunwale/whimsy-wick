@@ -297,12 +297,15 @@ WW.UI = (() => {
     document.body.classList.toggle('rm', !!s.reducedMotion);
   };
 
-  /* ---------------- tutorial & hints ---------------- */
+  /* ---------------- tutorial & hints ----------------
+   * The guide rides along with the live run: each page clears when the
+   * player performs its action, and the last page ends at the wick. */
   const setTutorial = (step, total) => {
-    $('tutorial').classList.remove('hidden');
+    const el = $('tutorial');
+    el.classList.remove('hidden');
     $('tut-step').textContent = `${step + 1} / ${total}`;
   };
-  const setTutorialText = (title, text) => { $('tut-title').textContent = title; $('tut-text').textContent = text; };
+  const setTutorialText = (title, text, prompt) => { $('tut-title').textContent = title; $('tut-text').textContent = text; if (prompt !== undefined) $('tut-tap').textContent = prompt; };
   const hideTutorial = () => $('tutorial').classList.add('hidden');
 
   const showGestureHint = (v) => $('gesture-hint').classList.toggle('hidden', !v);

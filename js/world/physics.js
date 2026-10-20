@@ -23,7 +23,7 @@ const WIND = { reach: 220, height: 90, lean: [0.4, 0.5] };
 const TUNE = {
   run: 235,           // u/s
   air: 210,
-  jumpV: 560,         // u/s initial
+  jumpV: 585,         // u/s initial — a plain tap clears the low platforms (top y=192)
   grav: 1450,         // u/s^2
   gravHold: 900,      // while jump held & rising
   gravFall: 1750,
@@ -34,6 +34,7 @@ const TUNE = {
   jamMax: 0.45,       // speed multiplier inside jam
   wind: 170,
   windHeld: 150,
+  holdSpeed: 0,       // tutorial hold: Ghee freezes in place until released
 };
 
 WW.Physics = { GROUND_Y, BODY, TUNE, M, WIND };
@@ -48,6 +49,8 @@ WW.Physics.newState = (startX = 140) => ({
   slipTime: 0,               // wobble seconds remaining
   squash: { x: 1, y: 1 },    // dynamic spring
   wind: 0,                   // wind exposure 0..1 (visual)
+  hold: false,               // tutorial hold: freeze Ghee in place
+  peakY: GROUND_Y,           // highest feet height reached during the current air
   blink: 0, blinkTimer: 1.5 + Math.random() * 2,
 });
 
@@ -55,7 +58,7 @@ WW.Physics.newState = (startX = 140) => ({
 WW.Physics.tryJump = (s) => {
   if (s.onGround || s.coyote > 0) {
     s.vy = TUNE.jumpV; s.jumping = true; s.onGround = false; s.coyote = 0;
-    s.jumpsUsed = 1;
+    s.jumpsUsed = 1; s.peakY = s.y;
     s.squash.x = 0.78; s.squash.y = 1.26;
     return true;
   }
@@ -89,9 +92,15 @@ WW.Physics.step = (s, input, world, dt) => {
             : jam ? 'jam' : 'dry';
   if (s.surface !== 'dry' && prevSurf === 'dry') ev.push({ k: 'slip', s: s.surface });
 
-  /* ---- horizontal intent (auto-runner) ----
-   * Ghee always runs forward; the player only hops. Slick surfaces ease
-   * the drive out (butter/milk glide on longer), jam clamps the pace. */
+  /* ---- horizontal intent (auto-runner; frozen while held) ----
+   * Ghee always runs forward mid-run; the player only hops. Slick surfaces
+   * ease the drive out (butter/milk glide on longer), jam clamps the pace.
+   * The tutorial holds Ghee at a gate so the run waits for the player. */
+  if (s.hold) {
+    s.vx = 0; s.vy = 0;
+    if (s.onGround) s.runPhase = 0;
+    return [{ k: 'hold' }];
+  }
   const f = TUNE.slipFriction[s.surface] ?? TUNE.slipFriction.dry;
   const top = (s.onGround ? TUNE.run : TUNE.air) * (s.surface === 'jam' ? TUNE.jamMax : 1);
   const acc = s.onGround ? f * 30 : 90;
@@ -125,16 +134,30 @@ WW.Physics.step = (s, input, world, dt) => {
   else s.vy -= (s.vy > 0 ? TUNE.grav : TUNE.gravFall) * dt;
   s.vy = Math.max(s.vy, -TUNE.maxFall);
   s.y += s.vy * dt;
+  if (s.y > (s.peakY || 0)) s.peakY = s.y;    // track this air's apex for the ledge-catch
 
-  /* ---- platform landings (solid tops; walls too) ---- */
+  /* ---- platform landings (solid tops; walls too) ----
+   * Swept check: a landing counts if Ghee crossed the platform's top
+   * surface at any point this frame (prevY → y), so fast falls never
+   * tunnel through to the floor — every platform reachable by a hop
+   * catches the landing (§5.1, player report). */
+  const prevY = s.y - s.vy * dt;
   for (const p of world.platforms) {
     const topX2 = p.x + p.w, topY = GROUND_Y + p.y;
     const overlapX = s.x + BODY.w * 0.75 > p.x && s.x + BODY.w * 0.25 < topX2;
     const falling = s.vy <= 0;
-    if (overlapX && falling && s.y >= topY - 6 && s.y - s.vy * dt <= topY + 2) {
+    if (!overlapX || !falling) continue;
+    const crossedTop = prevY >= topY - 2 && s.y <= topY + 6;   // swept across this frame
+    const riding = Math.abs(s.y - topY) < 12;                  // already standing on it
+    if (crossedTop || riding) {
       s.y = topY; s.vy = 0; s.onGround = true; s.jumping = false; s.jumpsUsed = 0;
-    } else if (s.vy <= 0 && s.onGround && overlapX && Math.abs(s.y - topY) < 12) {
-      s.y = topY; // ride the platform
+    }
+    /* ledge-catch: if Ghee jumped late but the peak still clears this
+     * platform's top while dying inside its x-span, snap onto it (§5.1,
+     * player report: hops should always catch a reachable platform). */
+    else if (s.peakY >= topY) {
+      const withinSpan = s.x + BODY.w * 0.4 > p.x && s.x + BODY.w * 0.6 < topX2;
+      if (withinSpan) { s.y = topY; s.vy = 0; s.onGround = true; s.jumping = false; s.jumpsUsed = 0; }
     }
   }
   if (s.y <= GROUND_Y) {
