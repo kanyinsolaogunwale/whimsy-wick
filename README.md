@@ -1,7 +1,7 @@
 # Whimsy Wick
 
 A cozy magical platformer for start.ng. When the kitchen falls asleep, tiny
-kitchen spirits keep its hidden magic alive — tonight, all the magic has
+kitchen spirits keep its hidden magic alive, tonight, all the magic has
 scattered, and Ghee sets out across the counters to gather sparks and light
 every wick again.
 
@@ -9,26 +9,33 @@ Play: **https://whimsy-wick.start.ng** (after publishing)
 
 ## Features
 
-- **Story mode** — five handcrafted levels: The Sleepy Counter, The Rolling
+- **Story mode**, five handcrafted levels: The Sleepy Counter, The Rolling
   Pin Run, The Butter Slide, The Sticky Situation, and The Kitchen's Last
   Spark. Each introduces new hazards (flour piles, patrolling rolling pins,
   slippery butter and milk, sticky jam, and a pushy little fan).
-- **Endless Challenge** — procedurally generated obstacle sections with
+- **Endless Challenge**, procedurally generated obstacle sections with
   rising difficulty, score, distance and run-time tracking, plus your best run.
-- **Five playable spirits** — Ghee, Mallow, Pip, Peaches and Clover. Same
+- **Five playable spirits**, Ghee, Mallow, Pip, Peaches and Clover. Same
   hops, different hearts.
-- **Two currencies** — ● coins reward moment-to-moment skill (+10 per hazard
+- **Two currencies**, ● coins reward moment-to-moment skill (+10 per hazard
   passed), ◆ gems mark real progress (+5 for every wick lit). Banked in your
   save for future features.
+- **Cook and Learn (Whimsical Kitchen)**, every story level hides real
+  recipe ingredients (eggs, tomatoes, rice, milk and more) along the
+  route. Collect them, then cook the dish at the Kitchen, a recipe book
+  with simple real steps you can follow in real life. Finishes unlock
+  trusty tools (the Trusty Pan, the Rolling Pin) that gate the next
+  recipe.
+- **Shop**, spend coins and gems on extra spirits and kitchen tools.
 - **First-run tutorial** with replay from settings, per-hazard hints,
   gesture hints, reduced-motion support.
-- **Auto-runner controls** — Ghee runs forward on their own, so hopping is
+- **Auto-runner controls**, Ghee runs forward on their own, so hopping is
   the one skill: **Keyboard** Space / ↑ / W (Esc / P pause) and **touch**
-  tap to hop, hold for a higher hop, tap again mid-air for a double hop —
+  tap to hop, hold for a higher hop, tap again mid-air for a double hop,
   no on-screen movement buttons and no dragging.
-- **Audio** — a looping CC0 lullaby for music (see Credits), procedural
+- **Audio**, a looping CC0 lullaby for music (see Credits), procedural
   one-shot sound cues, music/SFX volume + mute.
-- **start.ng integration** — player profile card, your start.ng character's
+- **start.ng integration**, player profile card, your start.ng character's
   colours tint your spirit's scarf/cap, and endless-mode bests save to the
   shared leaderboard.
 
@@ -63,6 +70,6 @@ Run time (lowest, time format). Signed-in players only; guests can look.
 
 ## Credits
 
-Music: "Happy Lullaby (song17)" by cynicmusic — The Cynic Project /
-cynicmusic.com / pixelsphere.org — released under CC0 on OpenGameArt:
+Music: "Happy Lullaby (song17)" by cynicmusic, The Cynic Project /
+cynicmusic.com / pixelsphere.org, released under CC0 on OpenGameArt:
 https://opengameart.org/content/happy-lullaby-song17

@@ -1,5 +1,5 @@
 /**
- * Whimsy Wick — js/world/physics.js
+ * Whimsy Wick, js/world/physics.js
  * ---------------------------------------------------------------
  * Live gameplay state + frame-rate independent simulation (assignment §5).
  * Auto-runner: Ghee always trots forward on their own, so the screen
@@ -19,11 +19,11 @@ const BODY = { w: 40, h: 50 };
  * and the speed range (fraction of top speed) while leaning into it */
 const WIND = { reach: 220, height: 90, lean: [0.4, 0.5] };
 
-/* Tuning — dt in seconds. */
+/* Tuning, dt in seconds. */
 const TUNE = {
   run: 235,           // u/s
   air: 210,
-  jumpV: 585,         // u/s initial — a plain tap clears the low platforms (top y=192)
+  jumpV: 585,         // u/s initial, a plain tap clears the low platforms (top y=192)
   grav: 1450,         // u/s^2
   gravHold: 900,      // while jump held & rising
   gravFall: 1750,
@@ -52,6 +52,7 @@ WW.Physics.newState = (startX = 140) => ({
   hold: false,               // tutorial hold: freeze Ghee in place
   peakY: GROUND_Y,           // highest feet height reached during the current air
   blink: 0, blinkTimer: 1.5 + Math.random() * 2,
+  invuln: 0,                 // revive grace: crash-proof seconds left
 });
 
 /** Apply a jump request (from input). Returns true if it fired. */
@@ -139,7 +140,7 @@ WW.Physics.step = (s, input, world, dt) => {
   /* ---- platform landings (solid tops; walls too) ----
    * Swept check: a landing counts if Ghee crossed the platform's top
    * surface at any point this frame (prevY → y), so fast falls never
-   * tunnel through to the floor — every platform reachable by a hop
+   * tunnel through to the floor, every platform reachable by a hop
    * catches the landing (§5.1, player report). */
   const prevY = s.y - s.vy * dt;
   for (const p of world.platforms) {
@@ -161,7 +162,7 @@ WW.Physics.step = (s, input, world, dt) => {
     }
   }
   if (s.y <= GROUND_Y) {
-    // resolve to ground regardless of prior grounded state — never sink below (§5.1)
+    // resolve to ground regardless of prior grounded state, never sink below (§5.1)
     s.jumpsUsed = 0;                       // reset double hop on landing
     if (!wasGround && s.vy < -60) {
       s.squash.x = 1.24; s.squash.y = 0.78;   // landing squash
@@ -200,6 +201,8 @@ WW.Physics.step = (s, input, world, dt) => {
   if (s.blink > 0) s.blink = Math.max(0, s.blink - dt * 2);
 
   /* ---- hazards (§5.2 clarity: read the threat before it bites) ---- */
+  /* revive grace: while the shield ticks down nothing can floor Ghee */
+  if (s.invuln > 0) s.invuln = Math.max(0, s.invuln - dt);
   for (const h of world.hazards) {
     const hwidth = h.w ?? 46;
     const hx2 = h.x + hwidth;
@@ -207,7 +210,7 @@ WW.Physics.step = (s, input, world, dt) => {
 
     if (h.t === 'flour') {
       // cloud rises ~40u above the counter; feet must clear it
-      if (overlap && s.y < GROUND_Y + 40) { ev.push({ k: 'crash', why: 'flour' }); return ev; }
+      if (s.invuln <= 0 && overlap && s.y < GROUND_Y + 40) { ev.push({ k: 'crash', why: 'flour' }); return ev; }
     }
     /* every hazard pays a coin the first time Ghee fully passes it (§5.3) */
     const passX = h.x + (h.range || 0) + hwidth + 30;
@@ -222,7 +225,7 @@ WW.Physics.step = (s, input, world, dt) => {
       const ph = (world.t || 0);
       const target = mid - h.range / 2 + (Math.sin(ph * (1.15 + (h.speed ?? 0))) * 0.5 + 0.5) * h.range;
       h.px = M.damp(h.px ?? target, target, 3.4, dt);
-      if (overlap && s.y < GROUND_Y + 34 && Math.abs(s.x + BODY.w * 0.5 - h.px) < 58) {
+      if (s.invuln <= 0 && overlap && s.y < GROUND_Y + 34 && Math.abs(s.x + BODY.w * 0.5 - h.px) < 58) {
         ev.push({ k: 'crash', why: 'pin' }); return ev;
       }
     }
@@ -245,6 +248,13 @@ WW.Physics.step = (s, input, world, dt) => {
   for (const g of world.gems) {
     if (!g.got && Math.hypot(g.x - (s.x + BODY.w / 2), GROUND_Y + g.y - (s.y + BODY.h / 2)) < cR) {
       g.got = true; ev.push({ k: 'collect', what: 'gem', at: g });
+    }
+  }
+  /* recipe ingredients = typed pickups (Cook & Learn): same magnet as
+   * gems, but each carries its kitchen kind through the event. */
+  for (const g of (world.ingredients || [])) {
+    if (!g.got && Math.hypot(g.x - (s.x + BODY.w / 2), GROUND_Y + g.y - (s.y + BODY.h / 2)) < cR) {
+      g.got = true; ev.push({ k: 'collect', what: 'ingredient', kind: g.k, at: g });
     }
   }
 

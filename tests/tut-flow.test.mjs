@@ -29,6 +29,7 @@ const world = {
     return { x, y: p ? p.y + 52 : 34 + Math.floor(Math.abs(Math.sin(x * 0.021)) * 150), got: false };
   }),
   gems: [], goal: { x: cfg.goal.x, done: false }, t: 0, fanTick: 0,
+  ingredients: (cfg.ingredients || []).map(it => ({ ...it, got: false })),
 };
 
 /* minimal replica of the game.js gate engine */
@@ -46,7 +47,7 @@ const tutGateCheck = (s) => {
 };
 const stepTutorial = (ev) => {
   if (!tutorial.active || !tutorial.cardUp) return;
-  const tagMap = { jump: 'jump', collect: 'spark', goal: 'goal' };
+  const tagMap = { jump: 'jump', collect: 'spark', goal: 'goal', ingredient: 'ingredient' };
   if (tagMap[ev] === tutorial.steps[tutorial.i].tag) {
     tutorial.cardUp = false;
     uiLog.push(['hide', tutorial.i]);
@@ -69,13 +70,14 @@ for (let i = 0; i < 60 * 90 && tutorial.active; i++) {
       if (h.t === 'flour' && s.x > h.x - 90 && s.x < h.x + 10) { tryJump(s); stepTutorial('jump'); break; }
     }
   }
-  if (tutorial.i === 1 && s.onGround && s.x > 830 && s.x < 885) { tryJump(s); }    // hop up to the shelf coins
+  if (tutorial.i === 2 && s.onGround && s.x > 830 && s.x < 885) { tryJump(s); }    // hop up to the shelf coins
   const evs = step(s, input, world, dt);
   for (const e of evs) {
     if (e.k === 'hold') continue;                       // waiting on the player
     if (e.k === 'crash') { console.error('FAIL: crashed at', Math.round(s.x), 'why', e.why); process.exit(1); }
     if (e.k === 'jump') stepTutorial('jump');
     if (e.k === 'collect' && e.what === 'spark') stepTutorial('collect');
+    if (e.k === 'collect' && e.what === 'ingredient') stepTutorial('ingredient');
     if (e.k === 'goal') stepTutorial('goal');
   }
   if (evs.some(e => e.k === 'moved')) moved++;
@@ -86,13 +88,16 @@ console.log('final x', Math.round(s.x), 'steps done:', tutorial.i, '/', tutorial
 
 let pass = true;
 /* expected card sequence: show@0(hold) hide → show@1 hide → show@2 hide */
-const want = [ ['show', 0, 'jump'], ['hide', 0], ['show', 1, 'spark'], ['hide', 1], ['show', 2, 'goal'], ['hide', 2] ];
+const want = [['show', 0, 'ingredient'], ['hide', 0], ['show', 1, 'jump'], ['hide', 1],
+  ['show', 2, 'spark'], ['hide', 2], ['show', 3, 'goal'], ['hide', 3]];
 if (JSON.stringify(uiLog) !== JSON.stringify(want)) {
-  console.error('FAIL: gate/card sequence mismatch — expected', JSON.stringify(want));
+  console.error('FAIL: gate/card sequence mismatch, expected', JSON.stringify(want));
   pass = false;
 }
 if (moved === 0) { console.error('FAIL: Ghee never moved after gates cleared'); pass = false; }
 if (s.x < 2500) { console.error('FAIL: never reached the wick (x=' + Math.round(s.x) + ')'); pass = false; }
+const ingCard = uiLog.filter(l => l[0] === 'show' && l[2] === 'ingredient');
+if (!ingCard.length) { console.error('FAIL: the ingredient card never showed'); pass = false; }
 
 if (!pass) process.exit(1);
 console.log('PASS gate-driven tutorial flow (gates stop, card shows, action releases, hides after)');

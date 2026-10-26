@@ -1,5 +1,5 @@
 /**
- * Whimsy Wick — js/game/startng.js
+ * Whimsy Wick, js/game/startng.js
  * ---------------------------------------------------------------
  * start.ng platform integration per the docs (connect page + HTTP API):
  *  • hidden /connect frame + postMessage, always checking e.origin
@@ -27,7 +27,7 @@ const connectFrame = () => {
   return frame;
 };
 
-/** askStartNg — straight from the docs, origin-checked. */
+/** askStartNg, straight from the docs, origin-checked. */
 const askStartNg = (message, replyType, timeoutMs = 5000) =>
   connectFrame().then((el) => new Promise((resolve) => {
     const requestId = Math.random().toString(36).slice(2);
@@ -74,7 +74,7 @@ WW.StartNG = {
           return { info: { name: p.name, style: p.style, account: p.account }, signedIn: true, via: 'api', raw: p };
         }
         if (res.status === 401) { session = null; try { sessionStorage.removeItem('startng_session'); } catch {} }
-      } catch { /* offline/localhost — game still runs playerless */ }
+      } catch { /* offline/localhost, game still runs playerless */ }
     }
     return null;
   },

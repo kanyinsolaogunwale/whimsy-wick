@@ -1,5 +1,5 @@
 /**
- * Whimsy Wick — js/render/engine.js
+ * Whimsy Wick, js/render/engine.js
  * ---------------------------------------------------------------
  * THREE (local ./lib/three.module.min.js) as the actual renderer (§17):
  * orthographic camera, canvas-art planes, layered parallax kitchen (§7.2),
@@ -124,7 +124,7 @@ WW.Engine = (canvas) => {
   };
 
   /** Node refs we re-position per frame (moving hazards etc.). */
-  let pins = [], fans = [], sparkPairs = [], gemPairs = [];
+  let pins = [], fans = [], sparkPairs = [], gemPairs = [], ingPairs = [];
   let goalFlame = null, goalBody = null, charHolder = null, charDef = null;
   let charMesh = null, charTex = null, worldRef = null, windStreaks = [];
   /* per-spirit move FX state: smoothed flip angle, facing, trail timers,
@@ -147,7 +147,7 @@ WW.Engine = (canvas) => {
     for (const g of [gFar, gMid, gDeco, gWorld]) {
       while (g.children.length) g.remove(g.children[0]);
     }
-    pins = []; fans = []; sparkPairs = []; gemPairs = []; windStreaks = [];
+    pins = []; fans = []; sparkPairs = []; gemPairs = []; ingPairs = []; windStreaks = [];
     PARTS.forEach(p => p.m.material.dispose()); PARTS.length = 0;
     goalFlame = goalBody = charHolder = null;
     worldRef = cfg.world; charDef = cfg.charDef;
@@ -157,7 +157,7 @@ WW.Engine = (canvas) => {
     const L = cfg.world.length;
     const rows = cfg.rows || [];
 
-    /* far wall — strips tile horizontally, full screen height */
+    /* far wall, strips tile horizontally, full screen height */
     repeatStrip('bg-wall', 640, 560, 540, -1000, L + 1000, -6, 120, gFar);
     if (rows.includes('window')) {
       const e = WW.tex('bg-window', 300, 150, () => {});
@@ -172,7 +172,7 @@ WW.Engine = (canvas) => {
     /* the counter itself: countertop exactly at the ground line */
     repeatStrip('bg-counter', 640, 360, 300, -700, L + 700, -1.5, WW.Physics.GROUND_Y - 150, gWorld);
 
-    /* platforms — draw each with its own mini canvas */
+    /* platforms, draw each with its own mini canvas */
     for (const p of cfg.world.platforms) {
       const e = WW.tex('plat' + Math.round(p.w), Math.max(8, Math.round(p.w)), 26, (c, w, h) => {
         c.fillStyle = WW.PALETTE.wood; WW.rr(c, 0, 0, w, h, 12); c.fill();
@@ -237,15 +237,19 @@ WW.Engine = (canvas) => {
     const gemE = WW.tex('co-gem', 40, 40, () => {});
     for (const s of cfg.world.sparks) sparkPairs.push({ s, m: sprite(sparkE, 30, 30, s.x, G + s.y, 0.6) });
     for (const g of cfg.world.gems) gemPairs.push({ g, m: sprite(gemE, 32, 32, g.x, G + g.y, 0.6) });
+    /* recipe ingredients (Cook & Learn), counter food art per kind */
+    for (const g of (cfg.world.ingredients || [])) {
+      ingPairs.push({ g, m: sprite(WW.ingTex(g.k), 34, 34, g.x, G + g.y, 0.62) });
+    }
 
-    /* goal lantern + flame (story only — endless runs have none) */
+    /* goal lantern + flame (story only, endless runs have none) */
     if (cfg.world.goal) {
       goalBody = sprite(WW.tex('goal-lantern', 92, 130, () => {}), 76, 107, cfg.world.goal.x + 38, G + 53.5, 0.7);
       goalFlame = sprite(WW.tex('goal-flame', 40, 52, () => {}), 34, 44, cfg.world.goal.x + 38, G + 104, 0.8);
       goalFlame.visible = false;
     }
 
-    /* character — live-sketched plane */
+    /* character, live-sketched plane */
     charCanvas.width = 120; charCanvas.height = 148;
     charTex = new THREE.CanvasTexture(charCanvas);
     charTex.minFilter = THREE.LinearFilter;
@@ -273,7 +277,7 @@ WW.Engine = (canvas) => {
 
   const charCanvas = WW.canvas(1, 1); /* resized at build */
 
-  /* Per-spirit move FX — the pricier the spirit, the more it shows off:
+  /* Per-spirit move FX, the pricier the spirit, the more it shows off:
    *  1 floaty puffs · 2 dust kicks · 3 sparkle trail · 4 petals + afterimages */
   const moveFx = (state, dt, off) => {
     const tier = (charDef && charDef.anim) || 0;
@@ -376,7 +380,7 @@ WW.Engine = (canvas) => {
       w.m.material.opacity = 0.95 * Math.sin(Math.PI * t);
     }
 
-    /* collectibles idle motion — bob + slight sway, always face-on */
+    /* collectibles idle motion, bob + slight sway, always face-on */
     const G = WW.Physics.GROUND_Y;
     for (const { s, m } of sparkPairs) {
       if (s.got) { m.visible = false; continue; }
@@ -387,6 +391,12 @@ WW.Engine = (canvas) => {
       if (g.got) { m.visible = false; continue; }
       m.rotation.z = Math.sin(now * 2 + g.x * 0.012) * 0.14;
       m.position.y = G + g.y + Math.sin(now * 2.2 + g.x * 0.012) * 6;
+    }
+    /* ingredients: same idle bob, a touch slower so food feels cosy */
+    for (const { g, m } of ingPairs) {
+      if (g.got) { m.visible = false; continue; }
+      m.rotation.z = Math.sin(now * 1.7 + g.x * 0.011) * 0.16;
+      m.position.y = G + g.y + Math.sin(now * 2.6 + g.x * 0.011) * 5;
     }
     if (goalFlame && goalFlame.visible) {
       const pulse = WW.settings && WW.settings.reducedMotion ? 1 : 0.9 + Math.sin(now * 9) * 0.12;

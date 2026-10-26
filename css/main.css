@@ -1,4 +1,4 @@
-/* Whimsy Wick — css/main.css
+/* Whimsy Wick, css/main.css
  * Pastel storybook UI system (assignment §8, §7.1, §16).
  */
 :root {
@@ -77,7 +77,7 @@ body {
 .hud-chip.hud-gem { border-color: var(--lav-deep); }
 .hud-chip.hud-dist { color: var(--ink-soft); }
 .hud-chip.hud-score { color: var(--pink-deep); }
-.hud-ic { width: 18px; height: 18px; }
+.hud-ic { width: 18px; height: 18px; vertical-align: -3px; }
 
 
 /* ---------------- hint cards ---------------- */
@@ -88,11 +88,11 @@ body {
 #hint-toast { top: calc(64px + env(safe-area-inset-top)); }
 .hint-card {
   background: var(--card); border: 2px solid rgba(74,53,36,.16); border-radius: 999px;
-  padding: 10px 18px; font-weight: 700; font-size: 14px; box-shadow: var(--shadow);
+  padding: 12px 20px; font-weight: 700; font-size: 14px; box-shadow: var(--shadow);
   display: flex; gap: 12px; align-items: center; max-width: 92vw;
 }
 .hint-card button {
-  border: 0; background: var(--butter); border-radius: 999px; font: inherit; font-weight: 700;
+  border: 2px solid var(--butter-deep); background: var(--butter); border-radius: 999px; font: inherit; font-weight: 700;
   padding: 4px 12px; cursor: pointer; white-space: nowrap; flex: 0 0 auto;
 }
 /* the gesture hint stays one straight line and hugs its text on phones */
@@ -107,25 +107,25 @@ body {
  * it never blocks taps while Ghee keeps running underneath. */
 #tutorial { position: fixed; inset: 0; z-index: 25; pointer-events: none; display: flex; justify-content: center; align-items: center; }
 .bubble {
-  background: rgba(255, 253, 246, .78); border: 3px solid rgba(74,53,36,.18);
-  border-radius: 18px; padding: 14px 20px; width: max-content; max-width: min(86vw, 420px); text-align: center;
+  background: rgba(255, 253, 246, .82); border: 3px solid rgba(74,53,36,.18);
+  border-radius: 20px; padding: 18px 26px; width: max-content; max-width: min(86vw, 440px); text-align: center;
   box-shadow: var(--shadow); animation: bob 2.2s ease-in-out infinite;
-  display: flex; flex-direction: column; gap: 4px;
+  display: flex; flex-direction: column; gap: 9px;
   transform: translateY(-12vh);
 }
-@media (max-width: 560px) { .bubble { transform: translateY(-16vh); padding: 12px 16px; } }
-.bubble b { color: var(--butter-deep); font-size: 15px; text-transform: uppercase; letter-spacing: .04em; }
-.bubble span { font-size: 15px; }
+@media (max-width: 560px) { .bubble { transform: translateY(-16vh); padding: 16px 22px; } }
+.bubble b { color: var(--butter-deep); font-size: 16px; text-transform: uppercase; letter-spacing: .04em; }
+.bubble span { font-size: 15.5px; line-height: 1.45; }
 .tut-tap { color: var(--butter-deep); font-weight: 800; font-size: 13px !important; margin-top: 6px; animation: blinkTap 1.6s ease-in-out infinite; }.tut-step { color: var(--ink-soft); font-size: 12px !important; }
 @keyframes blinkTap { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
 @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
-@media (max-width: 560px) { .bubble { transform: translateY(-16vh); padding: 12px 16px; } }
 
 /* ---------------- screens ---------------- */
 #screens { position: fixed; inset: 0; z-index: 30; pointer-events: none; }
 .screen {
   position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
-  justify-content: center; padding: 18px; gap: 10px; overflow-y: auto; pointer-events: auto;
+  justify-content: center; padding: 24px; gap: 16px; overflow-y: auto; pointer-events: auto;
+  overflow-x: hidden;
   background: rgba(250, 241, 220, .96);
   scrollbar-width: none;
 }
@@ -135,27 +135,86 @@ body {
  * z-index keeps it above the title screen's pinned top bar */
 .overlay-screen { background: rgba(74, 53, 36, .16); z-index: 50; }
 .panel {
-  background: var(--card); border-radius: 26px; border: 3px solid rgba(74,53,36,.15);
-  padding: 26px 30px; box-shadow: var(--shadow); text-align: center; max-width: min(92vw, 480px);
-  display: flex; flex-direction: column; gap: 14px; max-height: 92vh; overflow-y: auto;
+  background: var(--card); border-radius: 28px; border: 3px solid rgba(74,53,36,.15);
+  /* one shared FRAME for every modal: uniform width (no shrink-to-content,
+   * so all panels line up identically) and equal air above and below; the
+   * three-way min keeps it inside the overlay's 24px side padding on phones */
+  padding: 30px 36px; box-shadow: var(--shadow); text-align: center;
+  width: min(92vw, 500px, calc(100vw - 48px));
+  display: flex; flex-direction: column; gap: 24px; max-height: 92vh; overflow-y: auto;
 }
 
 .title-card {
   position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px;
-  max-width: 520px; width: 100%;
+  max-width: 520px; width: 100%; z-index: 2;
 }
-.title-card canvas { max-width: 100%; height: auto; }
-.tagline { color: var(--ink-soft); font-size: 15px; text-align: center; }
-.game-title {
-  font-size: clamp(44px, 9vw, 76px); line-height: 1.05; color: var(--ink);
-  text-align: center; margin-top: 4px;
+/* ---- painted night-kitchen backdrop (title only) ---- */
+#screen-title { background: transparent; overflow: hidden; }
+.title-scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+.title-wash { position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    radial-gradient(38rem 26rem at 50% 36%, rgba(250,241,220,.34), rgba(250,241,220,0) 70%),
+    linear-gradient(rgba(34,26,58,.22), rgba(34,26,58,0) 30%),
+    linear-gradient(rgba(74,53,36,0) 58%, rgba(74,53,36,.18));
 }
-.hero-band { position: relative; }
-.hero-band canvas { display: block; }
+.title-deco { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+/* the five spirits: one full-canvas layer over the backdrop; paintHero in
+ * ui.js works out each spirit's feet position (counter lip / kitchen floor) */
+.title-spirits { position: absolute; inset: 0; width: 100%; height: 100%;
+  display: block; z-index: 1; pointer-events: none; }
+/* pointer parallax: the painted backdrop eases a few px with the cursor
+ * (scaled up slightly so its edges never show), and the floating chips
+ * drift the other way for depth. @ui.js sets --plx / --ply on the screen. */
+#screen-title .title-scene {
+  transform: scale(1.055) translate3d(calc(var(--plx, 0) * 15px), calc(var(--ply, 0) * 10px), 0);
+  transition: transform .3s cubic-bezier(.2, .8, .35, 1);
+  will-change: transform;
+}
+#screen-title .title-deco {
+  transform: translate3d(calc(var(--plx, 0) * -12px), calc(var(--ply, 0) * -8px), 0);
+  transition: transform .3s cubic-bezier(.2, .8, .35, 1);
+}
+body.rm #screen-title .title-scene, body.rm #screen-title .title-deco {
+  transition: none; transform: none;
+}
+.title-deco canvas {
+  position: absolute; width: 44px; height: 44px; opacity: .95;
+  filter: drop-shadow(0 5px 0 rgba(74,53,36,.12));
+  animation: deco-bob 3.6s ease-in-out infinite;
+}
+.td-coin { left: 13%; top: 30%; }
+.td-gem { right: 13%; top: 56%; animation-duration: 4.4s; animation-delay: .7s; }
+.td-egg { left: 19%; top: 60%; animation-duration: 5.1s; animation-delay: 1.5s; }
+.td-tomato { right: 9%; top: 24%; animation-duration: 4.7s; animation-delay: .3s; }
+.td-star { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: #fff8e0;
+  box-shadow: 0 0 9px 2px rgba(255,214,107,.55); animation: twinkle 2.7s ease-in-out infinite; }
+.td-s1 { left: 8%; top: 12%; } .td-s2 { left: 30%; top: 7%; animation-delay: .5s; }
+.td-s3 { left: 55%; top: 11%; animation-delay: 1.1s; }
+.td-s4 { left: 84%; top: 15%; animation-delay: 1.7s; }
+.td-s5 { left: 20%; top: 22%; animation-delay: .9s; }
+.td-s6 { left: 70%; top: 21%; animation-delay: 2.1s; }
+@keyframes deco-bob { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-11px) rotate(3deg); } }
+@keyframes twinkle { 0%, 100% { opacity: .3; transform: scale(.75); } 50% { opacity: 1; transform: scale(1.2); } }
+body.rm .title-deco canvas, body.rm .td-star { animation: none !important; }
+.game-title { font-size: clamp(44px, 9vw, 76px); line-height: 1.05; color: #ffd66b;
+  text-align: center; margin-top: 4px; margin-bottom: 14px;
+  -webkit-text-stroke: 2px rgba(122,87,55,.6);
+  text-shadow: 0 3px 0 rgba(122,87,55,.55), 0 10px 26px rgba(46,26,60,.5); }
+@media (max-width: 860px) {
+  .title-deco canvas { width: 30px; height: 30px; }
+  /* the compact flock fills the upper sky (worst-case bottom edge ~33%H);
+   * park the chips on the clear strip just below it, above the menu card,
+   * so they never cover the spirits */
+  .td-coin { left: 6%; top: 35.5%; }
+  .td-egg { left: 16%; top: 35.5%; }
+  .td-gem { right: 6%; top: 35.5%; }
+  .td-tomato { right: 16%; top: 35.5%; }
+  .td-star { width: 5px; height: 5px; }
+}
 
 /* ---------------- story tile grid ---------------- */
-.story-panel { text-align: center; gap: 12px; }
-.story-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; padding: 4px 0 10px; }
+.story-panel { text-align: center; }  /* spacing inherited from .panel */
+.story-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; padding: 2px 0 4px; }
 @media (max-width: 480px) { .story-grid { gap: 7px; } }
 .story-tile {
   aspect-ratio: 1; border-radius: 18px; border: 0; cursor: pointer;
@@ -173,17 +232,23 @@ body {
 .story-tile.done { background: var(--butter); }
 .story-detail {
   background: var(--ivory); border: 2px solid rgba(74,53,36,.12); border-radius: 18px;
-  /* bottom padding includes the 4px button shadow so the optical gap under
-   * "Play level N" equals the gap above the level name (all story cards) */
-  padding: 14px 16px 18px; display: flex; flex-direction: column; gap: 8px; min-height: 74px;
+  padding: 18px; display: flex; flex-direction: column; gap: 10px; min-height: 74px;
 }
-.story-detail .sd-name { font-size: 16px; font-weight: 800; }
-.story-detail .sd-note { color: var(--ink-soft); font-size: 13px; }
+.story-detail .sd-name { font-size: 17px; font-weight: 800; }
+.story-detail .sd-note { color: var(--ink-soft); font-size: 13.5px; line-height: 1.5; }
+.story-detail .sd-recipe { font-weight: 800; font-size: 14px; color: var(--ink); }
+.story-detail .sd-daily {
+  color: #8a5c14; background: rgba(255, 214, 107, .4); border: 1.5px solid var(--butter-deep);
+  border-radius: 999px; padding: 2px 9px; font-size: 12px; margin-left: 4px; }
 .story-detail .sd-reward { display: flex; gap: 10px; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; }
 .story-detail .btn-play { width: 100%; }
-/* result share button (start.ng game standard: share a round's result on X) */
-.btn-share { width: 100%; text-align: center; background: #eef2f6; color: #0f1419;
-  box-shadow: 0 3px 0 #cfd8e0; font-weight: 800; }
+/* share destinations: cream chips with drawn pastel brand icons */
+.share-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 12px; }
+.share-chip { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 13px 6px 11px;
+  background: var(--ivory); border: 2px solid rgba(74,53,36,.14); border-radius: 16px; cursor: pointer;
+  box-shadow: 0 3px 0 rgba(74,53,36,.08); font-weight: 800; font-size: 12.5px; color: var(--ink); }
+.share-chip:active { transform: translateY(1px); box-shadow: 0 2px 0 rgba(74,53,36,.08); }
+.share-chip svg { width: 27px; height: 27px; display: block; }
 .ic-coin, .ic-gem { display: inline-block; width: 18px; height: 18px; vertical-align: -3px; margin-right: 3px; }
 .ic-coin { background: radial-gradient(circle at 35% 32%, #ffe08a 55%, #e9a63a 100%); border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(184,133,31,.75); }
 .ic-gem { display: inline-block; width: 18px; height: 18px; vertical-align: -3px;
@@ -195,36 +260,53 @@ body {
 /* modal head + x button */
 .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .modal-head h2 { font-size: 22px; }
+/* scroll-stuck: the title + close X ride at the top of any modal that
+ * scrolls, so the exit is always reachable without scrolling back up */
+.panel .modal-head {
+  position: sticky; top: -30px; z-index: 5;   /* -panel paddingY: clamps at the very top */
+  margin: -30px -36px 0;                       /* bleed through the panel padding */
+  padding: 26px 36px 12px;
+  background: var(--card);                     /* opaque so content passes under */
+  border-radius: 25px 25px 0 0;                /* match the panel's inner top corner */
+}
+/* compact landscape: the panel padding shrinks, so the stuck head must too */
+@media (max-height: 460px) {
+  .panel .modal-head { top: -18px; margin: -18px -22px 0; padding: 14px 22px 8px; }
+}
+/* close buttons are quiet exit affordances, NOT the primary action:
+ * soft ivory chip with a plain outline, no butter paint */
 .x-btn {
-  width: 38px; height: 38px; flex: 0 0 auto; border-radius: 999px; border: 0; cursor: pointer;
-  background: var(--butter); color: var(--ink); box-shadow: 0 3px 0 var(--butter-deep);
+  width: 38px; height: 38px; flex: 0 0 auto; border-radius: 999px; cursor: pointer;
+  background: var(--ivory); color: var(--ink-soft);
+  border: 2px solid rgba(74,53,36,.22); box-shadow: 0 2px 0 rgba(74,53,36,.12);
   display: inline-flex; align-items: center; justify-content: center;
 }
 .x-btn svg { width: 17px; height: 17px; }
-.x-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--butter-deep); }
+.x-btn:active { transform: translateY(2px); box-shadow: 0 0 0 rgba(74,53,36,.12); }
 
 .screen-title { font-size: 26px; color: var(--ink); }
-.screen-sub { color: var(--ink-soft); font-size: 14px; margin-top: -6px; }
+.screen-sub { color: var(--ink-soft); font-size: 14px; margin-top: -2px; line-height: 1.55; }
 
-.menu-stack { display: flex; flex-direction: column; gap: 12px; width: min(76vw, 320px); }
+.menu-stack { display: flex; flex-direction: column; gap: 14px; width: min(76vw, 320px); }
 .menu-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 .big-row { justify-content: center; }
 
+.tile-btn .tb-ic { display: flex; align-items: center; justify-content: center; }
 .tile-btn {
   display: flex; align-items: center; justify-content: center; gap: 12px; font: inherit; cursor: pointer;
-  padding: 12px 18px; border-radius: 18px; border: 0;
+  padding: 14px 20px; border-radius: 18px; border: 2px solid rgba(74,53,36,.22);
   font-weight: 800; font-size: 17px; color: var(--ink); background: var(--ivory);
   box-shadow: 0 4px 0 rgba(74,53,36,.18);
   transition: transform .08s ease, box-shadow .08s ease;
 }
 .tile-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(74,53,36,.18); }
-.tile-btn.primary { background: var(--butter); box-shadow: 0 5px 0 var(--butter-deep); }
+.tile-btn.primary { background: var(--butter); border-color: var(--butter-deep); box-shadow: 0 5px 0 var(--butter-deep); }
 .tile-btn.primary:active { box-shadow: 0 2px 0 var(--butter-deep); }
 .tile-btn svg { width: 26px; height: 26px; color: var(--ink-soft); }
 .tile-btn.primary svg { color: var(--ink); }
 
 .icon-btn {
-  width: 52px; height: 52px; border-radius: 16px; border: 0; cursor: pointer;
+  width: 52px; height: 52px; border-radius: 16px; border: 2px solid rgba(74,53,36,.22); cursor: pointer;
   display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   color: var(--ink); background: var(--ivory); box-shadow: 0 4px 0 rgba(74,53,36,.16);
   transition: transform .08s ease, box-shadow .08s ease; font: inherit;
@@ -233,21 +315,22 @@ body {
 .icon-btn svg { width: 24px; height: 24px; }
 .icon-btn.big { width: 62px; height: 62px; border-radius: 20px; }
 .icon-btn.big svg { width: 28px; height: 28px; }
-.icon-btn.primary { background: var(--butter); box-shadow: 0 4px 0 var(--butter-deep); }
+.icon-btn.primary { background: var(--butter); border-color: var(--butter-deep); box-shadow: 0 4px 0 var(--butter-deep); }
 .icon-btn.primary:active { box-shadow: 0 1px 0 var(--butter-deep); }
 .icon-btn.wide { width: auto; padding: 0 18px; flex-direction: row; gap: 8px; }
 .ib-label { font-weight: 800; font-size: 14px; }
 .btn-ic { width: 18px; height: 18px; vertical-align: -3px; }
 
 .btn {
-  font: inherit; font-weight: 800; border: 0; cursor: pointer; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  font: inherit; font-weight: 800; border: 2px solid rgba(74,53,36,.22); cursor: pointer; border-radius: 999px;
   padding: 13px 22px; font-size: 16px; color: var(--ink); background: var(--ivory);
   box-shadow: 0 4px 0 rgba(74,53,36,.18); transition: transform .08s ease, box-shadow .08s ease;
   pointer-events: auto; min-height: 44px;
 }
 .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(74,53,36,.18); }
 .btn:focus-visible { outline: 3px solid var(--butter-deep); outline-offset: 2px; }
-.btn-primary { background: var(--butter); color: var(--ink); box-shadow: 0 5px 0 var(--butter-deep); }
+.btn-primary { background: var(--butter); color: var(--ink); border-color: var(--butter-deep); box-shadow: 0 5px 0 var(--butter-deep); }
 .btn-primary:active { box-shadow: 0 2px 0 var(--butter-deep); }
 .btn-soft { background: var(--ivory); }
 .btn-back { background: transparent; box-shadow: none; color: var(--ink-soft); border: 2px dashed rgba(74,53,36,.25); min-height: 40px; }
@@ -256,7 +339,7 @@ body {
 .story-list { display: flex; flex-direction: column; gap: 12px; width: min(92vw, 460px); margin: 6px 0; }
 .story-item {
   display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer;
-  background: var(--card); border: 2px solid rgba(74,53,36,.14); border-radius: 18px; padding: 13px 16px;
+  background: var(--card); border: 2px solid rgba(74,53,36,.14); border-radius: 18px; padding: 15px 18px;
   box-shadow: 0 3px 0 rgba(74,53,36,.08); font: inherit; color: var(--ink); min-height: 56px;
 }
 .story-item.locked { opacity: .55; cursor: default; }
@@ -269,95 +352,133 @@ body {
 .story-item .meta span { font-size: 12.5px; color: var(--ink-soft); }
 .story-item .score { margin-left: auto; font-size: 12.5px; color: var(--ink-soft); white-space: nowrap; }
 
-/* ---------------- characters ---------------- */
+/* ---------------- characters ----------------
+ * Each spirit card is a shelf-style item: clear stroke around the whole
+ * section, moves line under the name, and its own Play/Buy button. */
 .char-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; justify-items: center;
-  max-width: 640px; width: 100%;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; justify-items: stretch;
+  width: 100%;
 }
-@media (max-width: 420px) { .char-grid { gap: 8px; } }
+@media (max-width: 420px) { .char-grid { gap: 12px; } }
 .char-card {
-  background: var(--card); border: 3px solid transparent; border-radius: 20px; padding: 10px 8px 12px;
-  cursor: pointer; text-align: center; width: 100%; max-width: 150px; box-shadow: 0 3px 0 rgba(74,53,36,.08);
-  font: inherit; color: var(--ink);
+  background: var(--ivory); border: 2px solid rgba(74,53,36,.18); border-radius: 16px;
+  padding: 30px 14px 12px; text-align: center; width: 100%;
+  box-shadow: 0 3px 0 rgba(74,53,36,.08); font: inherit; color: var(--ink);
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 7px;
 }
-.char-card canvas { display: block; margin: 0 auto 4px; max-width: 100%; height: auto; }
-.char-card { position: relative; padding-top: 32px; }
-.char-card .cc-moves { color: var(--butter-deep); font-weight: 700; min-height: 0; margin-top: 4px; }
+.char-card { gap: 5px; }
+.char-card canvas { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+.char-pick {
+  background: none; border: 0; cursor: pointer; font: inherit; color: var(--ink); padding: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+.char-pick b { font-size: 15px; }
+/* description text: quiet ink at reduced opacity, per art direction */
+.char-card .cc-moves { color: rgba(0,0,0,.55); font-weight: 700; font-size: 12.5px; min-height: 20px; line-height: 1.3; }
+.char-card .char-buy, .shelf-item .shelf-buy {
+  width: 100%; font-size: 12px; padding: 8px 3px; min-height: 40px; white-space: nowrap;
+  /* icon + price sit on one flex row so coin and value share a centre line */
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+}
+/* inside the price the coin/gem icon and its amount share one centre line,
+ * with the icon drawn noticeably larger than the value text */
+.char-price { display: inline-flex; align-items: center; line-height: 1; gap: 3px; }
+.char-card .char-buy .hud-ic, .shelf-item .shelf-buy .hud-ic { flex: 0 0 auto; width: 17px; height: 17px; }
+.char-card .char-buy:disabled, .shelf-item .shelf-buy:disabled { color: var(--ink-soft); }
+/* price buttons are icon + amount only: the word Buy is dropped everywhere,
+ * the whole row shares the button's vertical centre through inline-flex */
+.buy-label { display: none; }
+/* very narrow phones: squeeze so the longest split amount still fits */
+@media (max-width: 360px) {
+  .char-card .char-buy, .shelf-item .shelf-buy { font-size: 11px; padding: 8px 0; gap: 1px; }
+  .char-card .char-buy .char-price, .shelf-item .shelf-buy .char-price { gap: 1px; }
+  .char-card .char-buy .hud-ic, .shelf-item .shelf-buy .hud-ic { width: 14px; height: 14px; }
+}
+.char-card.sel { border-color: var(--butter-deep); box-shadow: 0 3px 0 rgba(233,166,58,.45); }
 .cc-badge {
   position: absolute; top: 8px; left: 50%; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 3px;
   font-size: 11.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px;
-  background: var(--ivory); border: 2px solid rgba(74,53,36,.14);
+  background: var(--ivory); border: 2px solid rgba(74,53,36,.14); z-index: 1;
 }
-.cc-badge .hud-ic { width: 13px; height: 13px; }
+.cc-badge .hud-ic { width: 16px; height: 16px; }
 .cc-badge.price { border-color: #c98a4b; }
 .cc-badge.price.short { color: var(--ink-soft); opacity: .8; }
-.cc-badge.playing { background: var(--butter); border-color: var(--butter-deep); }
-.cc-badge.owned { color: var(--ink-soft); }
-.chars-sub { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.cc-badge.owned { border-color: #c98a4b; }
+.chars-sub { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
 .chars-sub .screen-sub { margin-top: 0; }
-.chars-balance { display: inline-flex; gap: 8px; }
 .chars-note { min-height: 18px; font-weight: 800; color: var(--butter-deep); font-size: 14px; }
-#chars-confirm .hud-ic { width: 18px; height: 18px; vertical-align: -3px; }
-#chars-confirm:disabled { background: var(--ivory); color: var(--ink-soft); box-shadow: 0 3px 0 rgba(74,53,36,.14); cursor: not-allowed; }
-.char-card.sel { border-color: var(--butter-deep); transform: translateY(-4px); box-shadow: 0 6px 0 rgba(74,53,36,.14); }
-.char-card b { display: block; font-size: 15px; }
-.char-card small { color: var(--ink-soft); font-size: 11px; display: block; min-height: 26px; }
 
 /* ---------------- howto ---------------- */
 /* Move / Collect / Watch out: one vertical stack on every screen size,
  * each section filling the panel's width (original 480px panel kept) */
 .howto-cols {
-  display: flex; flex-direction: column; gap: 14px;
+  display: flex; flex-direction: column; gap: 16px;
   width: 100%;
 }
 .howto-box { width: 100%; }
 .howto-box {
   background: var(--card); border: 2px solid rgba(74,53,36,.12); border-radius: 20px;
-  padding: 16px 18px; text-align: left;
+  padding: 18px 20px; text-align: left;
 }
-.howto-box h3 { color: var(--butter-deep); margin-bottom: 8px; font-size: 15px; }.howto-box p { font-size: 13.5px; margin-bottom: 8px; color: var(--ink-soft); }
+.howto-box h3 { color: var(--butter-deep); margin-bottom: 10px; font-size: 15px; }
+.howto-box p { font-size: 13.5px; margin-bottom: 9px; color: var(--ink-soft); line-height: 1.55; }
   .howto-box p b { color: var(--ink); }
-  /* Collect rows use the same SVG icons as the HUD chips — identical art */
+  /* Collect rows use the same SVG icons as the HUD chips, identical art */
   .howto-box p .hud-ic { width: 18px; height: 18px; vertical-align: -3px; }
-.howto-hazards { display: flex; gap: 6px; flex-wrap: nowrap; justify-content: center; margin-bottom: 8px; }
+.howto-hazards { display: flex; gap: 8px; flex-wrap: nowrap; justify-content: center; margin: 2px 0 10px; }
 .howto-hazards canvas { background: #f3dcb6; border-radius: 10px; width: 48px !important; height: 34px !important; flex: 0 0 auto; min-width: 0; }
-.howto-list { font-size: 13px; color: var(--ink-soft); padding-left: 18px; }
+.howto-list { font-size: 13px; color: var(--ink-soft); padding-left: 20px; display: grid; gap: 5px; line-height: 1.5; }
 .howto-list b { color: var(--ink); }
 
 /* ---------------- settings ---------------- */
 .settings-card {
   background: var(--ivory); border: 2px solid rgba(74,53,36,.12); border-radius: 24px;
-  padding: 18px 20px; width: 100%; display: flex; flex-direction: column; gap: 10px; text-align: left;
+  padding: 16px 18px; width: 100%; display: flex; flex-direction: column; gap: 10px; text-align: left;
 }
 .settings-card h3 { color: var(--lav-deep); font-size: 14px; text-transform: uppercase; letter-spacing: .06em; margin-top: 6px; }
 .set-row {
-  display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 15px;
-  background: var(--ivory); border-radius: 14px; padding: 10px 14px; border: 2px solid rgba(74,53,36,.08);
+  /* compact row so phone widths never wrap or squeeze the goods */
+  display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 13.5px;
+  background: var(--ivory); border-radius: 12px; padding: 9px 13px; border: 2px solid rgba(74,53,36,.08);
 }
-.set-row input[type="range"] { flex: 1; accent-color: var(--butter-deep); min-height: 28px; }
-.set-row span { min-width: 30px; text-align: right; color: var(--ink-soft); font-size: 13px; }
-.toggle { margin-left: auto; position: relative; width: 52px; height: 30px; flex: 0 0 auto; }
+.set-row { white-space: nowrap; }
+.set-row input[type="range"] { flex: 1; min-width: 0; accent-color: var(--butter-deep); min-height: 22px; }
+.set-row span { min-width: 24px; text-align: right; color: var(--ink-soft); font-size: 12px; }
+.toggle { margin-left: auto; position: relative; width: 44px; height: 26px; flex: 0 0 auto; }
 .toggle input { position: absolute; opacity: 0; inset: 0; cursor: pointer; z-index: 2; width: 100%; height: 100%; }
 .toggle i {
   position: absolute; inset: 0; background: #e7dcc8; border-radius: 999px; transition: background .18s ease;
 }
 .toggle i::after {
-  content: ''; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%;
+  content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%;
   background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,.15); transition: left .18s ease;
 }
 .toggle input:checked + i { background: var(--butter); box-shadow: inset 0 0 0 2px rgba(233,166,58,.35); }
-.toggle input:checked + i::after { left: 25px; }
+.toggle input:checked + i::after { left: 21px; }
 .toggle input:focus-visible + i { outline: 3px solid var(--butter-deep); outline-offset: 2px; }
 
 /* ---------------- result panels ---------------- */
-.result-flavour { color: var(--ink-soft); font-size: 14.5px; }
+.result-flavour { color: var(--ink-soft); font-size: 14.5px; line-height: 1.55; }
 .reward-line { font-weight: 700; font-size: 14px; color: var(--ink); display: flex; gap: 6px; align-items: center; justify-content: center; }
 .result-stats { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+/* “Ghee gathered” chip row on the result panel (Cook & Learn) */
+.result-collected {
+  display: flex; gap: 9px; justify-content: center; align-items: center; flex-wrap: wrap;
+  margin: 0; font-size: 12px; color: var(--ink-soft);
+}
+.result-collected.hidden { display: none; }
+.collected-label { text-transform: uppercase; letter-spacing: .06em; font-weight: 700; font-size: 10.5px; }
+.collected-chip {
+  background: var(--ivory); border: 2px solid rgba(74,53,36,.1); border-radius: 999px;
+  padding: 4px 10px 4px 6px; display: inline-flex; gap: 5px; align-items: center; font-size: 16px;
+}
+.collected-chip b { font-size: 12px; color: var(--ink-soft); }
 .result-stats .rstat {
   background: var(--ivory); border: 2px solid rgba(74,53,36,.1); border-radius: 14px;
-  padding: 8px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 82px;
+  padding: 10px 16px; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 78px;
 }
-.rstat b { font-size: 17px; }
+.rstat b { font-size: 17px; display: inline-flex; align-items: center; gap: 5px; }
+.result-stats .rstat .hud-ic { width: 20px; height: 20px; }
 .rstat span { font-size: 11px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .05em; }
 .rstat.hot b { color: var(--pink-deep); }
 .newbest {
@@ -374,7 +495,7 @@ body {
 
 /* title screen: coin balance, gems, best score + distance, top-centre */
 .title-stats {
-  position: fixed; top: calc(21px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+  position: fixed; top: calc(30px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
   z-index: 40; display: flex; gap: 8px; flex-wrap: nowrap; white-space: nowrap;
 }
 .title-stats { background: none; border: 0; padding: 0; font: inherit; color: var(--ink); cursor: pointer; }
@@ -384,15 +505,14 @@ body {
 .title-stats:focus-visible { outline: 3px solid var(--butter-deep); outline-offset: 4px; border-radius: 999px; }
 
 /* records modal */
-.records-panel { max-width: min(94vw, 600px); }
-.records-h { color: var(--butter-deep); font-size: 15px; text-align: left; margin-top: 4px; }
+.records-panel { max-width: min(94vw, 600px); }.records-h { color: var(--butter-deep); font-size: 15px; text-align: left; margin-top: 4px; }
 .records-table-wrap { overflow-x: auto; }
 .records-table { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
 .records-table th {
   font-size: 11px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .05em;
-  text-align: left; padding: 6px 8px; border-bottom: 2px solid rgba(74,53,36,.12);
+  text-align: left; padding: 8px 10px; border-bottom: 2px solid rgba(74,53,36,.12);
 }
-.records-table td { padding: 7px 8px; border-bottom: 1px solid rgba(74,53,36,.08); text-align: left; white-space: nowrap; }
+.records-table td { padding: 9px 10px; border-bottom: 1px solid rgba(74,53,36,.08); text-align: left; white-space: nowrap; }
 .records-table td .hud-ic { width: 15px; height: 15px; vertical-align: -3px; margin-right: 3px; }
 .records-table tr.top td { font-weight: 800; }
 .records-table tr.top td:first-child { color: var(--butter-deep); }
@@ -404,8 +524,8 @@ body.rm .records-table tr.me td { background: var(--butter); }
 #screen-title { padding-top: 76px; }
 /* not enough room between the corner controls: drop to a second row */
 @media (max-width: 900px) {
-  .title-stats { top: calc(78px + env(safe-area-inset-top)); }
-  #screen-title { padding-top: 124px; }
+  .title-stats { top: calc(86px + env(safe-area-inset-top)); }
+  #screen-title { padding-top: 130px; }
 }
 @media (max-width: 420px) {
   .title-stats { gap: 5px; }
@@ -441,8 +561,6 @@ body.rm .bubble { animation: none !important; }
 /* ---------------- tiny screens ---------------- */
 @media (max-height: 620px) {
   .game-title { font-size: clamp(34px, 7vw, 54px); }
-  .hero-band canvas { max-width: 220px; }
-  .tagline { display: none; }
 }
 @media (max-width: 420px) {
   .icon-btn { width: 46px; height: 46px; }
@@ -456,11 +574,204 @@ body.rm .bubble { animation: none !important; }
   .story-grid { max-width: 560px; }
 }
 
+/* narrow phones: the modal frame gives back the 36px side kicks so the
+ * content inside actually has room, still airy but much tighter */
+@media (max-width: 560px) {
+  .panel { padding: 20px 16px; gap: 16px; border-radius: 22px; }
+  /* phones: six hazard tiles can't share one row inside the box, so the
+   * last few drop to a second line instead of spilling out of the section */
+  /* packed to the left: as many tiles as the row holds, rest wrap below */
+  .howto-hazards { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 9px; }
+  .howto-hazards canvas { width: 42px !important; height: 30px !important; }
+}
+
 /* modals fill well and centre on short landscape phones */
 @media (max-height: 460px) {
-  .panel { gap: 10px; padding: 16px 20px; max-height: 94vh; }
+  .panel { gap: 14px; padding: 18px 22px; max-height: 94vh; }
   .game-title { font-size: clamp(30px, 6vw, 44px); }
-  .hero-band canvas { max-width: 170px; }
-  .tagline { display: none; }
   .menu-stack { gap: 8px; }
+}
+
+/* ============ Cook & Learn ============ */
+
+/* HUD: the recipe ingredient chips row */
+.hud-ings { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.hud-ing { padding: 3px 9px; font-size: 12.5px; min-height: 28px; gap: 4px; background: rgba(255,253,246,.92); border-color: rgba(74,53,36,.2); }
+.hud-ing.done { border-color: var(--mint-deep); color: var(--mint-deep); opacity: .85; }
+
+/* title-screen recipe-book button uses the plain tile-button style */
+
+/* level-end Cook-Along overlay */
+#cook-overlay {
+  position: fixed; inset: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(46, 42, 68, .55); pointer-events: auto;
+}
+#cook-overlay.hidden { display: none; }
+
+/* continue-after-crash card: floats over the frozen game frame and asks
+ * whether to spend gems and pick the run back up */
+#revive-overlay {
+  position: fixed; inset: 0; z-index: 32;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(46, 42, 68, .55); pointer-events: auto;
+}
+#revive-overlay.hidden { display: none; }
+.revive-card { background: var(--card); border: 3px solid rgba(74,53,36,.15); border-radius: 24px;
+  box-shadow: var(--shadow); padding: 22px 26px 16px; display: flex; flex-direction: column; gap: 14px;
+  align-items: center; text-align: center; max-width: min(88vw, 380px); }
+.revive-title { margin: 0; font-size: 22px; font-weight: 800; color: var(--ink); }
+.revive-sub { margin: 0; font-size: 13.5px; color: var(--ink-soft); line-height: 1.45; max-width: 300px; }
+.revive-card .menu-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.revive-count { font-size: 12px; font-weight: 800; color: var(--ink-soft); }
+.disabled-cta { opacity: .55; }
+.cook-panel {
+  background: var(--card); border: 3px solid rgba(74,53,36,.2); border-radius: var(--radius);
+  padding: 20px 22px 24px; display: flex; flex-direction: column; gap: 14px; align-items: center;
+  box-shadow: var(--shadow); max-width: min(92vw, 400px); max-height: 94vh; overflow: auto;
+}
+.cook-head { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; width: 100%; }
+.cook-dish { font-size: 17px; color: var(--ink); white-space: nowrap; }
+.cook-dish-emoji { font-size: 22px; margin-right: 4px; }
+.cook-dish-name { font-weight: 800; }
+.cook-dish-real { display: block; font-size: 11.5px; color: var(--ink-soft); font-weight: 700; margin-top: 2px; }
+#cook-abort { flex: 0 0 auto; }
+.cook-ings { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.cook-canvas { background: transparent; border-radius: 18px; touch-action: none; }
+@media (max-width: 480px) { .cook-canvas { transform: scale(.92); transform-origin: top center; } }
+
+/* result dish line + unlock banner */
+.dish-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
+  padding: 10px 14px; border-radius: 14px; background: rgba(168, 220, 195, .25); border: 2px solid rgba(95, 174, 141, .35); font-weight: 700; font-size: 14px; }
+.dish-emoji { font-size: 20px; }
+.dish-name { color: var(--ink); }
+.dish-stars { color: var(--butter-deep); letter-spacing: .1em; }
+.dish-missing { font-size: 12px; color: var(--pink-deep); font-weight: 700; }
+.tool-line, .daily-line { display: block; text-align: center; padding: 9px 14px; border-radius: 14px;
+  background: rgba(255, 214, 107, .3); border: 2px solid rgba(233, 166, 58, .4); font-weight: 800; font-size: 13px; color: #8a5c14; }
+
+/* recipe book: same fixed modal width as every other modal, with each
+ * recipe card spanning the full panel width in one listed column */
+/* pantry strip at the top of the kitchen */
+.kitchen-pantry { display: flex; align-items: center; justify-content: center; gap: 3px; flex-wrap: wrap; row-gap: 3px; }
+.kp-label { text-transform: uppercase; letter-spacing: .07em; font-weight: 700; font-size: 10.5px; color: var(--ink-soft); margin-right: 0; white-space: nowrap; flex: 0 0 auto; }
+.kp-chip { background: var(--ivory); border: 2px solid rgba(74,53,36,.12); border-radius: 999px; padding: 2px 5px 2px 4px; display: inline-flex; gap: 2px; align-items: center; font-size: 15px; flex: 0 0 auto; }
+.kp-chip.zero { opacity: .45; }
+.rc-cook { align-self: flex-start; }
+/* phones: the ingredient row is one line, so the chips slim down to fit */
+@media (max-width: 560px) {
+  .kitchen-pantry { gap: 3px; }
+  .kp-label { letter-spacing: .05em; }
+  .kp-chip { border-width: 1.5px; padding: 2px 4px 2px 3px; gap: 2px; font-size: 12.5px; }
+  .kp-chip b { font-size: 11px; }
+}
+/* narrow phones: trim further so label + 6 chips still ride one line */
+@media (max-width: 430px) {
+  .kitchen-pantry { gap: 2px; justify-content: space-between; padding: 0 2px; }
+  .kp-chip { border-width: 1px; padding: 1px 3px 1px 2px; gap: 1px; font-size: 11.5px; border-radius: 10px; }
+  .kitchen-pantry { justify-content: center; flex-wrap: wrap; row-gap: 3px; }
+  .kp-chip b { font-size: 10.5px; }
+}
+.pantry-nudge { background: rgba(255, 214, 107, .38); border-color: var(--butter-deep); color: #8a5c14; }
+.pantry-chips { display: flex; gap: 9px; justify-content: center; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.recipes-daily { display: flex; justify-content: center; }
+.daily-chip { background: rgba(255, 214, 107, .35); border: 2px solid var(--butter-deep); color: #8a5c14;
+  border-radius: 999px; padding: 16px; font-weight: 800; font-size: 12.5px; }
+.recipes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; width: 100%; }
+.recipe-card {
+  /* +5px bottom tail: room for the Cook button's 5px box-shadow, so its
+   * button face sits as far from the card edge as the title does from the top */
+  background: var(--ivory); border: 2px solid rgba(74,53,36,.14); border-radius: 18px; padding: 16px 16px 21px;
+  display: flex; flex-direction: column; gap: 10px; text-align: left; box-shadow: 0 3px 0 rgba(74,53,36,.08);
+}
+.recipe-card.cooked { border-color: var(--butter-deep); background: #fff9e8; }
+.recipe-card.locked { opacity: .62; background: var(--cream); }
+.rc-title { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.rc-emoji { font-size: 22px; }.rc-title b { font-size: 15px; }
+.rc-title small { color: var(--ink-soft); font-size: 12px; }
+
+
+.rc-lock { align-self: stretch; border-radius: 10px; padding: 6px 10px; font-size: 12px; font-weight: 700;
+  background: rgba(199, 184, 232, .25); color: var(--lav-deep); border: 2px dashed rgba(143, 116, 201, .5); }
+.rc-ing { display: flex; gap: 8px; flex-wrap: wrap; }
+.rs-ing { background: var(--card); border: 2px solid rgba(74,53,36,.18); border-radius: 999px; padding: 4px 12px; font-size: 15px; font-weight: 700; }
+.rc-steps { margin-left: 20px; font-size: 13px; line-height: 1.5; color: var(--ink); display: grid; gap: 5px; }
+.rc-fact { font-size: 12px; color: var(--ink-soft); background: rgba(255, 233, 168, .45); border-radius: 10px; padding: 6px 9px; }
+/* cook pays: a roomy label + one chip per prize, so the prizes scan
+ * at a glance instead of running together as dense text. Big enough
+ * type and enough chip/card contrast to read at a glance; everything
+ * rides one line */
+.rc-reward { display: flex; align-items: center; justify-content: flex-start; flex-wrap: nowrap; gap: 8px; font-size: 14px; min-width: 0; }
+.rc-pays .rp-label { font-size: 14px; font-weight: 800; color: var(--ink); flex-shrink: 0; }
+.rc-pays .rp-chip { display: inline-flex; align-items: center; gap: 4px; background: transparent;
+  border: 0; border-radius: 999px; padding: 4px 0; font-weight: 800; font-size: 14px; color: var(--ink); white-space: nowrap; }
+.rc-pays .rp-tool { color: #8a5c14; }
+.rc-pays .hud-ic { width: 17px; height: 17px; }
+.rc-pays .rp-chip .shelf-icon { width: 20px; height: 20px; vertical-align: -5px; }
+
+/* kitchen shelf (shop tab 2) */
+/*
+ * Sliding pill: the butter indicator element carries the selected look and
+ * slides between the two sheet buttons instead of them repainting in place */
+.shop-tabs { display: flex; gap: 10px; position: relative; align-self: flex-start; }
+.shop-ind {
+  position: absolute; top: 0; left: 0; height: 100%; width: 100px; z-index: 0; border-radius: 999px;
+  background: var(--butter); border: 2px solid var(--butter-deep); box-shadow: 0 2px 0 var(--butter-deep);
+  will-change: transform, width;
+  transition: transform .24s cubic-bezier(.4, 0, .2, 1), width .24s cubic-bezier(.4, 0, .2, 1);
+}
+.shop-ind.snap-only { transition: none; }
+.shop-tab { border: 2px solid transparent; background: none; color: var(--ink-soft);
+  border-radius: 999px; padding: 6px 16px; font: inherit; font-weight: 800; font-size: 13px; cursor: pointer;
+  position: relative; z-index: 1;
+  transition: color .2s ease, border-color .2s ease, background-color .2s ease, box-shadow .2s ease, transform .08s ease;
+}
+.shop-tab.sel { background: none; border-color: transparent; box-shadow: none; color: #8a5c14; }
+
+/* the shop keeps one body height for BOTH tabs so the modal frame never
+ * resizes when you flip between Spirits and Kitchen Shelf: the taller
+ * tab scrolls inside while the shorter one just has more air */
+.shop-body {
+  display: flex; flex-direction: column; gap: 14px; width: 100%;
+  height: min(56vh, 500px); overflow-y: auto;
+  scrollbar-width: none;
+}
+.shop-body::-webkit-scrollbar { display: none; }
+
+/* the shelf breathes exactly like the Spirits grid: same 2-up rhythm,
+ * same 16px (12px on small phones) gap between items */
+.shelf-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; width: 100%; }
+@media (max-width: 420px) { .shelf-grid { gap: 12px; } }
+.shelf-item { background: var(--ivory); border: 2px solid rgba(74,53,36,.14); border-radius: 16px; padding: 14px 14px 16px;
+  display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.shelf-item.owned { border-color: var(--mint-deep); background: #eff8f2; }
+.shelf-item.sel { border-color: var(--butter-deep); box-shadow: 0 3px 0 rgba(233,166,58,.45); }
+.shelf-icon-slot { display: inline-flex; width: 48px; height: 48px; }
+/* shelf art: small inline by default (reward + lock lines), full size in the slot */
+.shelf-icon { width: 16px; height: 16px; display: inline-block; vertical-align: -3px; }
+.shelf-icon-slot .shelf-icon { width: 100%; height: 100%; display: block; vertical-align: baseline; }
+.shelf-item b { font-size: 14px; white-space: nowrap; }        /* names are two words max, never wrap */
+.shelf-item small { color: var(--ink-soft); font-size: 12px; line-height: 1.35; }
+/* cut: .Char badge stays absolute at the card's apex (char-card rule).
+ * Shelf items have no anchor so that same rule flies them out of the card
+ * to the grid top — reset it right here, scoped to the shelf. */
+.shelf-item .cc-badge { position: static; top: auto; left: auto; transform: none; }
+.cc-badge { align-self: flex-start; display: inline-flex; align-items: center; line-height: 1; gap: 5px; border-radius: 999px;
+  padding: 2px 9px; font-size: 12px; font-weight: 800; border: 1.5px solid rgba(74,53,36,.16); background: var(--card); }
+.cc-badge.price { border-color: var(--butter-deep); color: #a3661c; }
+.cc-badge.owned { border-color: var(--butter-deep); color: #a3661c; }
+.cc-badge .hud-ic { width: 16px; height: 16px; }
+.rs-wallet { font-size: 11px; color: var(--ink-soft); font-weight: 700; }
+.rs-wallet .hud-ic { width: 13px; height: 13px; vertical-align: -2px; }
+.shelf-grid .btn { align-self: flex-start; }
+@media (max-width: 480px) { .recipes-grid { grid-template-columns: 1fr; } }
+/* small phones: the reward row keeps one line by dropping the chip
+ * pill chrome (icons + bold text carry the values) */
+@media (max-width: 420px) {
+  .recipe-card { padding: 12px 12px 17px; }
+  .rc-reward { gap: 6px; }
+  .rc-pays .rp-chip { background: transparent; border: 0; padding: 2px 0; font-size: 12px; }
+  .rc-pays .hud-ic { width: 12px; height: 12px; }
+  .rc-pays .rp-chip .shelf-icon { width: 13px; height: 13px; }
+  .rc-pays .rp-label { font-size: 12px; }
 }

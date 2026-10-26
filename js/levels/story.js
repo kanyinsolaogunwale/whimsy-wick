@@ -1,5 +1,5 @@
 /**
- * Whimsy Wick — js/levels/story.js
+ * Whimsy Wick, js/levels/story.js
  * ---------------------------------------------------------------
  * §1  STORY: five handcrafted levels, fully data-driven (assignment §17).
  *     Coordinates are world-units: 1 u = 1 px at design height 540.
@@ -25,13 +25,27 @@ WW.STORY_LEVELS = [
     sparks: [420, 520, 620, 950, 1050, 1300, 1400, 1720, 1820, 1980, 2080],
     gems: [950, 1770],
     platforms: [ { x: 880, w: 150, y: 96 }, { x: 1250, w: 130, y: 96 }, { x: 2050, w: 170, y: 96 } ],
+    ingredients: [
+      { x: 500, k: 'flour', y: 56 },
+      { x: 950, k: 'egg',   y: 140 },
+      { x: 1350, k: 'milk', y: 140 },
+      { x: 2150, k: 'sugar', y: 140 },
+    ],
     tutorial: [
-      { tag: 'jump',  title: 'Hop the flour pile!',   prompt: 'Tap (or Space) to hop over the flour', gate: 640,
-        text: 'Flour piles are too dusty to wade through. Tap to hop over them, and tap again in mid-air for a second hop!' },
-      { tag: 'spark', title: 'Grab the coins',        prompt: 'Hop up to the shelf coins and grab them', gate: 790,
-        text: 'Brush against coins to gather them. Bank them for keeps.' },
+      { tag: 'ingredient', title: 'Bank the flour sack!',   prompt: 'Run on: the hop-free goods are the easy ones', gate: 300,
+        text: 'Every level ends cooking a real recipe. This one: pancakes, sweep up the flour as you pass!' },
+      { tag: 'jump',  title: 'Hop the flour pile!',   prompt: 'Tap (or Space) to hop over the flour', gate: 700,
+        text: 'Tap to hop the flour, tap again mid-air for a second hop.' },
+      { tag: 'spark', title: 'Grab the coins',        prompt: 'Hop up to the shelf coins and grab them', gate: 830,
+        text: 'Sweep through coins to gather them.' },
       { tag: 'goal',  title: 'Light the wick',        prompt: 'Reach the lantern at the end', gate: 2300,
-        text: 'Reach the lantern at the end of the counter and give it your light.' },
+        text: 'Light the lantern at the end of the counter.' },
+    ],
+    /* Cook & Learn placement (recipe: pancakes). Lower y = easy trot-grab,
+     * higher y = hop for it. Amounts match the recipe's needs exactly. */
+    facts: [
+      'The ingredients on the counter are not decoration: bring every one to the pan and the dish comes out perfect.',
+      'Pancake batter rests 10 minutes before the pan. The flour drinks the milk and the pancakes rise fluffier.',
     ],
   },
   {
@@ -47,6 +61,18 @@ WW.STORY_LEVELS = [
     sparks: [380, 480, 620, 1300, 1400, 1520, 1750, 1850, 2260, 2380, 2480],
     gems: [2280],
     platforms: [ { x: 1350, w: 160, y: 100 }, { x: 2150, w: 150, y: 100 } ],
+    ingredients: [
+      { x: 520, k: 'flour', y: 56 },
+      { x: 950, k: 'flour', y: 58 },
+      { x: 1400, k: 'sugar', y: 150 },
+      { x: 1780, k: 'butter', y: 60 },
+      { x: 2250, k: 'milk', y: 150 },
+      { x: 2600, k: 'nutmeg', y: 58 },
+    ],
+    facts: [
+      'Chin chin dough must be stiff enough to smell through. Add the milk one splash at a time.',
+      'Fry chin chin in small, unhurried batches. Crowded oil makes them soggy instead of crisp.',
+    ],
     hints: { pin: 'Rolling pins patrol left and right. Watch for the gap in their swing.' },
   },
   {
@@ -62,6 +88,17 @@ WW.STORY_LEVELS = [
     sparks: [400, 500, 600, 700, 800, 900, 1150, 1350, 1450, 1550, 1900, 2200, 2300],
     gems: [1350],
     platforms: [ { x: 1000, w: 150, y: 96 }, { x: 1550, w: 150, y: 96 } ],
+    ingredients: [
+      { x: 460, k: 'egg', y: 56 },
+      { x: 880, k: 'butter', y: 56 },
+      { x: 1120, k: 'egg', y: 150 },
+      { x: 1620, k: 'milk', y: 150 },
+      { x: 2350, k: 'salt', y: 58 },
+    ],
+    facts: [
+      'Scrambled eggs finish off the heat: they look just a little too wet, then carry on cooking on the plate.',
+      'Salt eggs before serving, not before cooking, or they turn weepy instead of creamy.',
+    ],
     hints: { butter: 'Butter is slippery! Skid, feather your steering, and jump while sliding.' },
     // (no em dashes anywhere in game text)
   },
@@ -78,6 +115,18 @@ WW.STORY_LEVELS = [
     sparks: [420, 520, 620, 720, 820, 920, 1400, 1500, 1600, 2000, 2100, 2400],
     gems: [1000, 2010],
     platforms: [ { x: 1050, w: 150, y: 100 }, { x: 2350, w: 140, y: 96 } ],
+    ingredients: [
+      { x: 460, k: 'rice', y: 56 },
+      { x: 870, k: 'pepper', y: 58 },
+      { x: 1120, k: 'tomato', y: 150 },
+      { x: 1450, k: 'onion', y: 58 },
+      { x: 2080, k: 'tomato', y: 58 },
+      { x: 2400, k: 'oil', y: 150 },
+    ],
+    facts: [
+      'Jollof gets its colour where the tomato blend turns dark and the oil floats on top. Do not rush that stage.',
+      'Steam does the last part of jollof rice: tight lid, low heat, no peeking.',
+    ],
     hints: { milk: 'Milk grips less than butter. Long, gentle skids.', jam: 'Jam is sticky! It slows Ghee down, so build up speed before it.' },
   },
   {
@@ -94,12 +143,24 @@ WW.STORY_LEVELS = [
     sparks: [420, 520, 620, 720, 820, 1000, 1250, 1450, 1650, 1850, 2050, 2250, 2450, 2650, 2850],
     gems: [1000, 1850, 2850],
     platforms: [ { x: 980, w: 140, y: 96 }, { x: 1900, w: 160, y: 100 }, { x: 2600, w: 140, y: 96 } ],
+    ingredients: [
+      { x: 460, k: 'beans', y: 56 },
+      { x: 1080, k: 'beans', y: 150 },
+      { x: 1560, k: 'pepper', y: 58 },
+      { x: 2000, k: 'onion', y: 150 },
+      { x: 2330, k: 'oil', y: 56 },
+      { x: 2650, k: 'egg', y: 150 },
+    ],
+    facts: [
+      'Moi moi lifts because the whisked batter holds air: whisk, then pour gently.',
+      'Steam is a patient heat. Covered pot, little water, no peeking until almost an hour is up.',
+    ],
     hints: { fan: 'A little fan holds Ghee to a crawl! Hop over its breeze.' },
   },
 ];
 
 /* ----------------------------------------------------------------
- * §2  Endless mode — designed chunk patterns, rising difficulty.
+ * §2  Endless mode, designed chunk patterns, rising difficulty.
  * Each chunk starts with ≥140u runway and ≥380u between lethal
  * anchors; difficulty tiers gate heavier mixes (assignment §4.2).
  * ---------------------------------------------------------------- */
@@ -155,7 +216,7 @@ WW.generateEndlessSparks = (targetX, rng) => {
 };
 
 /**
- * Endless gems: rare high-value pickups worth hopping for — one every
+ * Endless gems: rare high-value pickups worth hopping for, one every
  * ~900u on average (≈28 Per 26000u run), placed above the spark line.
  */
 WW.generateEndlessGems = (targetX, rng) => {

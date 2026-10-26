@@ -1,10 +1,10 @@
 /**
- * Whimsy Wick — js/base/core.js
+ * Whimsy Wick, js/base/core.js
  * ---------------------------------------------------------------
  * Shared engineering fabric: palette, tiny 5×7 pixel font (for canvas
  * wordmark and labels), math helpers, easing, seeded RNG, texture cache.
  *
- * The game is fully procedural — every texture is drawn onto canvases at
+ * The game is fully procedural, every texture is drawn onto canvases at
  * boot, then uploaded to THREE.CanvasTexture. Keeps the repo tiny (docs:
  * no heavy assets) and pins the art style to one pastel storybook dialect.
  */
@@ -14,7 +14,7 @@ window.WW = window.WW || {};
   'use strict';
 
   /* ---------------------------------------------------------------- *
-   *  Palette — soft pastels, readable inks (assignment §7.1)          *
+   *  Palette, soft pastels, readable inks (assignment §7.1)          *
    * ---------------------------------------------------------------- */
   WW.PALETTE = {
     cream:      '#faf1dc',
@@ -79,7 +79,7 @@ window.WW = window.WW || {};
   };
 
   /* -------------------------------------------------------------- *
-   *  5×7 pixel font — canvas wordmark, HUD glyphs, cover art        *
+   *  5×7 pixel font, canvas wordmark, HUD glyphs, cover art        *
    *  Letters/numbers/punct only; 6 x-pitch wide, baseline at y=6.   *
    * -------------------------------------------------------------- */
   const GLYPHS = {
@@ -181,7 +181,7 @@ window.WW = window.WW || {};
   };
 
   /**
-   * Static texture cache: WW.tex(key, w, h, drawFn) — drawn once, memoised.
+   * Static texture cache: WW.tex(key, w, h, drawFn), drawn once, memoised.
    * Returns { canvas, texture }. Call WW.warmTextures(THREE) to upload.
    */
   const _tex = new Map();

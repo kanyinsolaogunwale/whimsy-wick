@@ -1,5 +1,5 @@
 /**
- * Whimsy Wick — js/game/game.js
+ * Whimsy Wick, js/game/game.js
  * ---------------------------------------------------------------
  * Orchestrator: state machine across title/story/endless/pause/results,
  * first-run tutorial (once, persisted), per-hazard hints, story saves,
@@ -28,10 +28,12 @@ WW.createGame = (canvas) => {
   let animT = 0, running = false, paused = false, raf = null, lastTs = 0;
   let runStats = null;            // endless: {score, sparks, time}
   let tutorial = null;            // active tutorial script
-  let tutorialForced = false;
-  let flash = null, flashT = 0;
+  let tutorialForced = false;  let flash = null, flashT = 0;
   let collectChain = 0, collectChainT = 0;
-  let uiReturn = 'title';         // where howto/settings go back to
+  /* ingredient combo (Cook & Learn): quick same-kind sweeps pay extra */
+  let ingCombo = 0, ingComboKind = '', ingComboT = 0;
+  let factsQueue = null;            //Cook & Learn: tip toasts queued across the run
+  let uiReturn = 'title';           // where howto/settings go back to
 
   /* -------------------------------------------------------
    *  world builders
@@ -59,9 +61,12 @@ WW.createGame = (canvas) => {
     const hazards = cfg.hazards.map(normHaz);
     const sparks = cfg.sparks.map(x => ({ x, y: sparkY(x, plat), got: false }));
     const gems = (cfg.gems || []).map(x => ({ x, y: gemY(x, plat), got: false, kind: 'gem' }));
+    /* Cook & Learn: the level's recipe + typed ingredient pickups */
+    const recipe = WW.recipeForLevel(idx);
+    const ingredients = (cfg.ingredients || []).map(it => ({ ...it, got: false }));
     world = {
       length: cfg.length,
-      platforms: plat, hazards, sparks, gems,
+      platforms: plat, hazards, sparks, gems, ingredients,
       goal: { x: cfg.goal.x, done: false },
       t: 0,
     };
@@ -71,12 +76,59 @@ WW.createGame = (canvas) => {
     });
     applyCharTint();
     levelIdx = idx; levelCfg = cfg;
-    runStats = { sparks: 0, coins: 0, gems: 0, sparksGround: cfg.sparks.length };
+    runStats = {
+      sparks: 0, coins: 0, gems: 0, sparksGround: cfg.sparks.length,
+      recipe: recipe ? recipe.id : null, recipeNeeds: recipe || null,
+      ingredients: {}, ingredientsGround: ingredients.length,
+    };
     resetState();
     ui.setHUD('story', cfg.name);
     ui.showNone(); ui.hud.show(true);
     ui.hud.coins(0); ui.hud.gems(0);
+    ui.hud.ingredients(ingredientStrip());
+    /* Half-Prepped Pantry (Kitchen Shelf): the first ingredient waits
+     * in the bowl before the run even starts */
+    if (recipe && data.kitchen.includes('pantry')) {
+      const first = world.ingredients.find(i => !i.got);
+      if (first) {
+        first.got = true;
+        runStats.ingredients[first.k] = (runStats.ingredients[first.k] || 0) + 1;
+        ui.showToast('Pantry prepped: the ' + (WW.INGREDIENTS[first.k] || {}).name?.toLowerCase() + ' started in the bowl!', 3600);
+        ui.hud.ingredients(ingredientStrip());
+      }
+    }
+    buildFacts(cfg);
     maybeTutorial(cfg);
+  };
+
+  /* HUD chip row: one chip per recipe ingredient (Collected 1/2 …) */
+  const ingredientStrip = () => {
+    const recipe = runStats && runStats.recipeNeeds;
+    if (!recipe) return null;
+    return recipe.needs.map(({ k, n }) => ({
+      k, n,
+      emoji: (WW.INGREDIENTS[k] || {}).emoji || '\u{1F34E}',
+      name: (WW.INGREDIENTS[k] || {}).name || k,
+      have: (runStats.ingredients && runStats.ingredients[k]) || 0,
+    }));
+  };
+
+  /* result-panel strip: what Ghee actually gathered this run (Cook & Learn) */
+  const gatheredStrip = () => {
+    const t = runStats && runStats.ingredients || {};
+    return Object.entries(t).map(([k, n]) => ({
+      k, n,
+      emoji: (WW.INGREDIENTS[k] || {}).emoji || '\u{1F34E}',
+      name: (WW.INGREDIENTS[k] || {}).name || k,
+    }));
+  };
+
+  /* cooking fact toasts: one per level, first time only */
+  const buildFacts = (cfg) => {
+    data.factsSeen = data.factsSeen || {};
+    factsQueue = (cfg.facts || [])
+      .map((f, i) => ({ at: 420 + i * 950, fact: f, i }))
+      .filter((f) => !data.factsSeen[cfg.id + ':' + f.i]);
   };
 
   /* Reward scale per level, mirrored from ui.js (what a clear pays). */
@@ -88,12 +140,13 @@ WW.createGame = (canvas) => {
   const buildEndless = () => {
     tutorial = null;
     ui.hideTutorial();
+    factsQueue = null;
     const rng = WW.rng((Date.now() >>> 10) % 99991);
     const L = 26000;    const hazards = WW.generateEndless(L, rng).map(normHaz);
     const sparks = WW.generateEndlessSparks(L, rng).map(x => ({ x, y: 34 + Math.floor(Math.abs(Math.sin(x * 0.017)) * 190), got: false }));
     const gems = WW.generateEndlessGems(L, rng).map(x => ({ x, y: gemY(x, []), got: false, kind: 'gem' }));
     world = {
-      length: L, platforms: [], hazards, sparks, gems,
+      length: L, platforms: [], hazards, sparks, gems, ingredients: [],
       goal: null, t: 0,
     };
     engine.build({ world, theme: rng() < 0.5 ? 'night' : 'flour', charDef, rows: ['window'], startX: 140 });
@@ -131,13 +184,13 @@ WW.createGame = (canvas) => {
   };
   const levelCfgTheme = () => levelCfg ? levelCfg.theme : 'night';
   const currentRows = () => levelCfg ? (levelCfg.decorations || []) : ['window'];  /* -------------------------------------------------------
-   *  tutorial + hints — gate-driven: the guide card only appears when
+   *  tutorial + hints, gate-driven: the guide card only appears when
    *  Ghee reaches the next obstacle, names the action to pass it, and
    *  vanishes the instant she performs it (hop / coin / wick). Between
    *  gates she still trots on her own, but at each gate the tutorial
    *  holds her in place so the run waits for the player's action.
    *  (tester feedback: no auto-run through unhinted risks, and the
-   *  old "Wake up, Ghee!" card made no sense — she's already awake.) */
+   *  old "Wake up, Ghee!" card made no sense, she's already awake.) */
   const maybeTutorial = (cfg) => {
     tutorial = null;
     ui.hideTutorial();                 // the first card only shows at the first gate
@@ -164,7 +217,7 @@ WW.createGame = (canvas) => {
    * up between gates never advance or skip a card. */
   const stepTutorial = (ev) => {
     if (!tutorial || !tutorial.active || !tutorial.cardUp) return;
-    const tagMap = { jump: 'jump', collect: 'spark', goal: 'goal' };
+    const tagMap = { jump: 'jump', collect: 'spark', goal: 'goal', ingredient: 'ingredient' };
     const step = tutorial.steps[tutorial.i];
     if (tagMap[ev] === step.tag) {
       tutorial.cardUp = false;
@@ -236,8 +289,21 @@ WW.createGame = (canvas) => {
   };
   const clearKeys = () => input.setEnabled(false);
 
-  /* Every run settles exactly once — win, lose, restart or quit: its coins
-   * and gems go into the ever-growing balances, and endless runs update the
+  /* crash: freeze the frame, then either offer a gem revive or settle the
+   * run as a normal loss */
+  const setCrash = (why) => {
+    mode = 'losing';
+    WW.Audio.play('splat');
+    engine.burst(state.x + 20, state.y + 20, 'crash');
+    input.setEnabled(false);
+    /* the revive offer decides what happens next: continue for gems, or
+     * settle this run as a normal loss */
+    offerRevive(why);
+  };
+
+  /* Every run settles exactly once, win, lose, restart or quit: its coins
+   * and gems go into the ever-growing balances, story runs bank their
+   * gathered ingredients into the pantry, and endless runs update the
    * bests and the saved top-10 runs. */
   const settleRun = (extraCoins = 0, extraGems = 0) => {
     const s = runStats;
@@ -250,6 +316,14 @@ WW.createGame = (canvas) => {
     data.stats.coinsEarned += earned;
     data.stats.gemsEarned += gems;
     data.stats.runs += 1;
+    /* Cook & Learn: everything gathered on a story run waits in the pantry
+     * for the Kitchen, win or lose */
+    if (playMode === 'story' && s.ingredients) {
+      data.pantry = data.pantry || {};
+      for (const [k, n] of Object.entries(s.ingredients)) {
+        data.pantry[k] = (data.pantry[k] || 0) + n;
+      }
+    }
     let newBest = false;
     if (playMode === 'endless') {
       newBest = s.score > (data.endless.best || 0);
@@ -270,35 +344,227 @@ WW.createGame = (canvas) => {
     engine.setPose('win');
     WW.Audio.play('win');
     input.setEnabled(false);
-    setTimeout(() => {
-      const isLast = levelIdx === WW.STORY_LEVELS.length - 1;
-      const cfg = WW.STORY_LEVELS[levelIdx];
-      const firstClear = !data.story.completed.includes(cfg.id);
-      if (firstClear) data.story.completed.push(cfg.id);
-      data.story.sparks[cfg.id] = Math.max(data.story.sparks[cfg.id] || 0, runStats.sparks);
-      data.story.gems[cfg.id] = Math.max(data.story.gems[cfg.id] || 0, runStats.gems);
-      /* rewards: a fixed per-level clear bonus on top of the coins picked up */
-      const rew = STORY_REWARDS[levelIdx] || { coins: 100, gems: 5 };
-      const bonus = firstClear ? 1 : 0.4;           // replays pay 40%
-      const rewardCoins = Math.round(rew.coins * bonus);
-      const rewardGems = Math.round(rew.gems * bonus);
-      settleRun(rewardCoins, rewardGems);
-      ui.renderStory(WW.STORY_LEVELS, data.story.completed, data.story.sparks);
-      mode = 'result';
-      WW.Audio.duckMusic(true);
-      ui.hud.show(false);
-      ui.showResult('story-complete', {
-        sparks: runStats.sparks,
-        coins: runStats.coins + runStats.sparks,
-        rewardCoins,
-        rewardGems,
-        gemsPicked: runStats.gems,
-        balance: data.wallet.coins,
-        gemBalance: data.wallet.gems,
-        flavour: cfg.goal.caption,
-        last: isLast,
-      });
-    }, 1300);
+    /* no more auto-cooking at the finish line: everything gathered banks
+     * in the pantry (settleRun) and cooking happens from the Kitchen menu */
+    setTimeout(() => presentStoryResult(WW.recipeForLevel(levelIdx), null), 1300);
+  };
+
+  /* -------------------------------------------------------
+   *  Cook-Along, from Ghee's Kitchen: pick a recipe, look at how it's
+   *  made, cook it with what the pantry holds, nothing auto-starts
+   *  after a run anymore (Naylo's kitchen idea).
+   * ------------------------------------------------------- */
+  /* pantry chips for the cook overlay: have = what's banked now */
+  const pantryStrip = (recipe) => recipe.needs.map(({ k, n }) => ({
+    k, n,
+    emoji: (WW.INGREDIENTS[k] || {}).emoji || '\u{1F34E}',
+    name: (WW.INGREDIENTS[k] || {}).name || k,
+    have: Math.min(data.pantry[k] || 0, n),
+  }));
+  /* what each cook-along step sees as `gathered` (missing → grey step) */
+  const pantryGathered = (recipe) => {
+    const t = {};
+    for (const n of recipe.needs) t[n.k] = Math.min(data.pantry[n.k] || 0, n.n);
+    return t;
+  };
+  const beginKitchenCooking = (recipe) => {
+    mode = 'cooking';
+    ui.showCooking(recipe, pantryStrip(recipe));
+    WW.Audio.duckMusic(false);
+    const fullIngredients = recipe.needs.every(n => (data.pantry[n.k] || 0) >= n.n);
+    WW.CookDom.begin({
+      recipe,
+      canvas: $('cook-canvas'),
+      gold: data.kitchen.includes('pan'),
+      gathered: pantryGathered(recipe),
+      onDone: (res) => {
+        $('cook-overlay').classList.add('hidden');
+        settleKitchenCook(recipe, { ...res, fullIngredients });
+      },
+    });
+  };
+
+  /* the dish is served: consume the pantry, pay out, stamp the recipe,
+   * grant the tool (first time), then show the result panel */
+  const settleKitchenCook = (recipe, res) => {
+    for (const n of recipe.needs) {
+      data.pantry[n.k] = Math.max(0, (data.pantry[n.k] || 0) - n.n);
+    }
+    data.recipes = data.recipes || {};
+    const rec = data.recipes[recipe.id] || (data.recipes[recipe.id] = {});
+    let unlockedTool = null, dailyCooked = false;
+    if (!rec.cooked && !data.tools.includes(recipe.tool.id)) {
+      data.tools.push(recipe.tool.id);
+      unlockedTool = recipe.tool;
+    }
+    rec.cooked = true;
+    rec.stars = Math.max(rec.stars || 0, res.stars);
+    rec.fullIngredients = !!res.fullIngredients;
+    data.stats.dishesCooked = (data.stats.dishesCooked || 0) + 1;
+    let dishCoins = res.bonusCoins, dishGems = res.bonusGems, paidGems = res.bonusGems;
+    /* daily special: the day's dish pays double, once per UTC day */
+    const todayKey = new Date().toISOString().slice(0, 10);
+    if (WW.dailySpecial().id === recipe.id && data.dailyCooked !== todayKey) {
+      data.dailyCooked = todayKey;
+      dailyCooked = true;
+      dishCoins *= 2;
+    }
+    data.wallet.coins += dishCoins;
+    data.wallet.gems += paidGems;
+    data.stats.coinsEarned += dishCoins;
+    data.stats.gemsEarned += paidGems;
+    WW.persist.save();
+    ui.renderRecipes(data);
+    mode = 'recipes';
+    WW.Audio.duckMusic(true);
+    ui.showResult('kitchen-done', {
+      dish: { emoji: recipe.emoji, name: recipe.name, stars: res.stars, missing: res.missing },
+      tool: unlockedTool,
+      daily: dailyCooked,
+      coins: dishCoins,
+      gems: paidGems,
+      flavour: 'Fresh ' + recipe.name.toLowerCase() + ', made step by real step.',
+    });
+  };
+
+  const presentStoryResult = (levelRecipe, dish) => {
+    const isLast = levelIdx === WW.STORY_LEVELS.length - 1;
+    const cfg = WW.STORY_LEVELS[levelIdx];
+    const firstClear = !data.story.completed.includes(cfg.id);
+    if (firstClear) data.story.completed.push(cfg.id);
+    data.story.sparks[cfg.id] = Math.max(data.story.sparks[cfg.id] || 0, runStats.sparks);
+    data.story.gems[cfg.id] = Math.max(data.story.gems[cfg.id] || 0, runStats.gems);
+    /* rewards: a fixed per-level clear bonus on top of the coins picked up */
+    const rew = STORY_REWARDS[levelIdx] || { coins: 100, gems: 5 };
+    const bonus = firstClear ? 1 : 0.4;           // replays pay 40%
+    const rewardCoins = Math.round(rew.coins * bonus);
+    const rewardGems = Math.round(rew.gems * bonus);
+    /* dish payout + recipe book + the vital tool for the next recipe */
+    let dishCoins = 0, dishGems = 0, unlockedTool = null, dailyCooked = false;
+    if (levelRecipe && dish) {
+      dishCoins = dish.bonusCoins;
+      dishGems = dish.bonusGems;
+      data.recipes = data.recipes || {};
+      const rec = data.recipes[levelRecipe.id] || (data.recipes[levelRecipe.id] = {});
+      if (!rec.cooked && !data.tools.includes(levelRecipe.tool.id)) {
+        data.tools.push(levelRecipe.tool.id);
+        unlockedTool = levelRecipe.tool;
+      }
+      rec.cooked = true;
+      rec.stars = Math.max(rec.stars || 0, dish.stars);
+      rec.fullIngredients = !!dish.fullIngredients;  // marked cooked-complete in the book
+      data.stats.dishesCooked = (data.stats.dishesCooked || 0) + 1;
+      /* daily special: the day's dish pays double, once per UTC day */
+      const todayKey = new Date().toISOString().slice(0, 10);
+      if (WW.dailySpecial().id === levelRecipe.id && data.dailyCooked !== todayKey) {
+        data.dailyCooked = todayKey;
+        dailyCooked = true;
+        dishCoins += rewardCoins;
+      }
+    }
+    settleRun(rewardCoins + dishCoins, rewardGems + dishGems);
+    ui.renderStory(WW.STORY_LEVELS, data.story.completed, data.story.sparks);
+    mode = 'result';
+    WW.Audio.duckMusic(true);
+    ui.hud.show(false);
+    ui.showResult('story-complete', {
+      sparks: runStats.sparks,
+      coins: runStats.coins + runStats.sparks,
+      collected: gatheredStrip(),
+      rewardCoins: rewardCoins + dishCoins,
+      rewardGems: rewardGems + dishGems,
+      gemsPicked: runStats.gems,
+      balance: data.wallet.coins,
+      gemBalance: data.wallet.gems,
+      flavour: cfg.goal.caption,
+      last: isLast,
+      /* Cook & Learn lines */
+      dish: levelRecipe && dish ? { emoji: levelRecipe.emoji, name: levelRecipe.name, stars: dish.stars, missing: dish.missing } : null,
+      tool: unlockedTool,
+      daily: dailyCooked,
+      recipeName: levelRecipe ? levelRecipe.name : null,
+      /* after a run the dish is NOT cooked automatically: nudge the player
+       * to the Kitchen, where the recipe is chosen, shown, and cooked */
+      pantrip: !!levelRecipe && !dish,
+    });
+  };
+
+  /* ---------------------------------------------------------------
+   *  Continue after losing (revive): pay gems to pick the run back up
+   *  at the crash spot with a short grace shield. First revive is 3
+   *  gems, then it doubles, max 3 per run: 3, 6, 12. No gems banked
+   *  or offers used up means straight to the usual fail screen.
+   * --------------------------------------------------------------- */
+  const REVIVE_COSTS = [3, 6, 12];
+  let reviveOffer = null;                 // { why, cost, timeLeft, timer }
+
+  const offerRevive = (why) => {
+    const idx = Math.min(runStats.revives || 0, REVIVE_COSTS.length - 1);
+    const noMore = (runStats.revives || 0) >= REVIVE_COSTS.length;
+    const cost = REVIVE_COSTS[idx];
+    /* low gems STILL shows the card, but with a plain "can't afford"
+     * message and a dead Continue; only offers run out short-circuits */
+    if (mode !== 'losing' || noMore) {
+      finishCrash(why);
+      return;
+    }
+    reviveOffer = { why, cost, timeLeft: 5, timer: null };
+    ui.showRevive({ cost, gems: data.wallet.gems, shield: 2.5 });
+    ui.reviveCountdown(5);
+    reviveOffer.timer = setInterval(() => {
+      reviveOffer.timeLeft -= 1;
+      if (reviveOffer.timeLeft > 0) { ui.reviveCountdown(reviveOffer.timeLeft); return; }
+      reviveCountdownEnd();
+    }, 1000);
+  };
+
+  const stopOffer = () => {
+    if (reviveOffer && reviveOffer.timer) clearInterval(reviveOffer.timer);
+    reviveOffer = null;
+    ui.hideRevive();
+  };
+
+  /* the offer expired unaccepted: the run settles as a normal loss */
+  const reviveCountdownEnd = () => {
+    const why = reviveOffer ? reviveOffer.why : null;
+    stopOffer();
+    finishCrash(why);
+  };
+
+  /* pay, hand Ghee a 2s grace shield, and re-thaw the run right there */
+  const reviveNow = () => {
+    if (mode !== 'losing' || !reviveOffer || !state) return;
+    const { cost } = reviveOffer;
+    /* hard lock: no wallet check, no revive, whatever called us */
+    if ((data.wallet.gems || 0) < cost) {
+      ui.showToast('Not enough gems to revive!');
+      ui.reviveCountdown(0);
+      reviveCountdownEnd();
+      return;
+    }
+    data.wallet.gems -= cost;
+    runStats.revives = (runStats.revives || 0) + 1;
+    runStats.gemsSpent = (runStats.gemsSpent || 0) + cost;
+    WW.persist.save();
+    stopOffer();
+    mode = 'play';
+    poseFreezeT = 0;
+    state.invuln = 2.5;
+    state.vy = 0; state.vx = 0; state.onGround = true;
+    state.jumping = false; state.jumpsUsed = 0; state.peakY = state.y;
+    engine.setPose(null);
+    input.setEnabled(true);
+    ui.hud.show(true);
+    WW.Audio.duckMusic(false);
+    WW.Audio.play('gem');
+    engine.burst(state.x + 20, state.y + 20, 'gem');
+    ui.showToast('Back in the run for ' + cost + ' gems!');
+  };
+
+  /* the unchanged lose flow, used by decline and by a too-poor offer */
+  const finishCrash = (why) => {
+    if (!why) { finishEndless(); return; }   // safety: no reason stored means endless
+    if (playMode === 'story') finishStoryFail(why); else finishEndless();
   };
 
   const finishStoryFail = (why) => {
@@ -320,6 +586,7 @@ WW.createGame = (canvas) => {
       ui.showResult('story-fail', {
         flavour, coins: runStats ? runStats.coins + runStats.sparks : 0, balance: data.wallet.coins,
         gems: runStats ? runStats.gems || 0 : 0, gemBalance: data.wallet.gems,
+        collected: runStats ? gatheredStrip() : [],
       });
     }, 1000);
   };
@@ -391,6 +658,23 @@ WW.createGame = (canvas) => {
               engine.burst(e.at.x, G + e.at.y, 'collect');
               if (playMode === 'endless') runStats.score = runStats.sparks * 10 + runStats.dist;
               stepTutorial('collect');
+            } else if (e.what === 'ingredient') {
+              const need = runStats.recipeNeeds ?
+                (runStats.recipeNeeds.needs.find(n => n.k === e.kind) || { n: 0 }).n : 0;
+              const had = runStats.ingredients[e.kind] || 0;
+              runStats.ingredients[e.kind] = had + 1;
+              if (had >= need) runStats.coins += 5;      // beyond the recipe = simple coins
+              WW.Audio.play('collect', 2);
+              ui.hud.coins(runStats.coins + runStats.sparks);
+              ui.hud.ingredients(ingredientStrip());
+              engine.burst(e.at.x, G + e.at.y, 'collect');
+              /* combo: steady same-kind sweeps pay a small bonus */
+              if (ingComboKind === e.kind && ingComboT > 0) {
+                ingCombo += 1;
+                if (ingCombo % 2 === 0) { runStats.coins += 5; ui.hud.coins(runStats.coins + runStats.sparks); }
+              } else { ingCombo = 1; ingComboKind = e.kind; }
+              ingComboT = 1.8;
+              stepTutorial('ingredient');
             } else {
               runStats.gems += 1;
               WW.Audio.play('gem');
@@ -409,11 +693,7 @@ WW.createGame = (canvas) => {
           case 'windTick': WW.Audio.play('wind'); break;
           case 'crash': {
             if (mode !== 'play') break;
-            mode = 'losing';
-            WW.Audio.play('splat');
-            engine.burst(state.x + 20, state.y + 20, 'crash');
-            input.setEnabled(false);
-            if (playMode === 'story') finishStoryFail(e.why); else finishEndless();
+            setCrash(e.why);
             break;
           }
           case 'goal': {
@@ -433,6 +713,13 @@ WW.createGame = (canvas) => {
       if (collectChainT > 0) {
         collectChainT -= dtReal;
         if (collectChainT <= 0) collectChain = 0;
+      }
+      if (ingComboT > 0) ingComboT -= dtReal;
+      /* Cook & Learn fact toasts, one per spot, first time only */
+      if (factsQueue && factsQueue.length && state.x > factsQueue[0].at) {
+        const f = factsQueue.shift();
+        data.factsSeen[levelCfg.id + ':' + f.i] = true; WW.persist.save();
+        ui.showToast('\u{1F4A1} ' + f.fact, 5600);
       }
       if (playMode === 'endless') {
         runStats.dist = WW.Physics.metres(state.x);
@@ -468,6 +755,7 @@ WW.createGame = (canvas) => {
   const modalOwner = {
     chars: () => 'title', howto: () => uiReturn, settings: () => uiReturn,
     signin: () => 'title', story: () => 'title', records: () => 'title', result: () => 'title',
+    recipes: () => 'title',
   };
 
   const actions = {
@@ -475,30 +763,75 @@ WW.createGame = (canvas) => {
     'select-story': (i) => { ui.selectStory(i); mode = 'story-select'; },
     'start-endless': () => { playMode = 'endless'; buildEndless(); beginPlay(); },
     'play-level': (i) => { playMode = 'story'; buildStory(i); beginPlay(); },
-    'open-chars': () => { ui.renderChars(WW.CHARACTERS, data.character, shopInfo()); ui.show('chars'); mode = 'chars'; },
-    'pick-char': () => {},
-    'chars-confirm': () => {
-      const def = WW.CHARACTERS.find(c => c.id === ui.charsTemp);
-      if (!def) return;
-      if (!data.owned.includes(def.id)) {
-        /* buy: coins first, gems top up any gap; unlock + equip, stay in the shop */
-        const pay = WW.payPlan(def.price, data.wallet.coins, data.wallet.gems);
-        if (!pay.ok) return;                              // button is disabled anyway
-        data.wallet.coins -= pay.coins;
-        data.wallet.gems -= pay.gems;
-        data.owned.push(def.id);
-        data.character = def.id; WW.persist.save();
-        charDef = def;
-        WW.Audio.play('win');
-        ui.renderChars(WW.CHARACTERS, def.id, shopInfo(), `${def.name} unlocked!`);
-        return;
-      }
-      data.character = def.id; WW.persist.save();
+    'open-chars': () => { ui.renderChars(WW.CHARACTERS, data.character, shopInfo()); ui.renderShelf(data); ui.show('chars'); ui.setShopTab(false); ui.snapShopInd(); mode = 'chars'; },
+    /* shop tab 2: the Kitchen Shelf */
+    'open-shelf': () => ui.renderShelf(data),
+    /* each spirit card carries its own Play / Buy button (no confirm row) */
+    'char-play': (id) => {
+      if (mode !== 'chars') return;
+      const def = WW.CHARACTERS.find(c => c.id === id);
+      if (!def || !data.owned.includes(id)) return;
+      data.character = id; WW.persist.save();
       charDef = def;
       WW.Audio.play('gem');
-      ui.show('title'); mode = 'title';
+      ui.renderChars(WW.CHARACTERS, id, shopInfo());
+      ui.showToast(def.name + ' hops tonight!');
+    },
+    'char-buy': (id) => {
+      if (mode !== 'chars') return;
+      const def = WW.CHARACTERS.find(c => c.id === id);
+      if (!def) return;
+      if (data.owned.includes(id)) { actions['char-play'](id); return; }
+      /* coins first, gems top up any gap; unlock + equip, stay in the shop */
+      const pay = WW.payPlan(def.price, data.wallet.coins, data.wallet.gems);
+      if (!pay.ok) return;                                  // button is disabled anyway
+      data.wallet.coins -= pay.coins;
+      data.wallet.gems -= pay.gems;
+      data.owned.push(id);
+      data.character = id; WW.persist.save();
+      charDef = def;
+      WW.Audio.play('win');
+      ui.renderChars(WW.CHARACTERS, id, shopInfo(), `${def.name} unlocked!`);
+      ui.renderShelf(data);
     },
     'open-records': () => { ui.renderRecords(data); ui.show('records'); mode = 'records'; },
+    /* Cook & Learn: the Kitchen (recipe list + how-to + cook-along) */
+    'open-recipes': () => { ui.renderRecipes(data); ui.show('recipes'); mode = 'recipes'; },
+    'kitchen-cook': (id) => {
+      if (mode !== 'recipes') return;
+      const recipe = WW.RECIPES.find(r => r.id === id);
+      if (!recipe) return;
+      const need = WW.toolNeeded(recipe);
+      if (need && !data.tools.includes(need.id)) {
+        ui.showToast('Locked: cook the dish before this one first!');
+        return;
+      }
+      beginKitchenCooking(recipe);
+    },
+    'shelf-buy': (id) => {
+      const item = WW.kitchenItem(id);
+      if (!item || data.kitchen.includes(id)) return;
+      if (item.coins) {
+        if (data.wallet.coins < item.coins) { ui.showToast('Not banked enough yet, coins first!'); return; }
+        data.wallet.coins -= item.coins;
+      } else if (item.gems) {
+        if (data.wallet.gems < item.gems) { ui.showToast('Not banked enough yet, gems needed!'); return; }
+        data.wallet.gems -= item.gems;
+      }
+      data.kitchen.push(id);
+      WW.persist.save();
+      WW.Audio.play('win');
+      ui.renderChars(WW.CHARACTERS, data.character, shopInfo());
+      ui.renderShelf(data);
+      ui.showToast(item.name + ' is yours!');
+    },
+    'cook-abort': () => {
+      if (mode !== 'cooking') return;
+      WW.CookDom.abort();
+      $('cook-overlay').classList.add('hidden');
+      mode = 'recipes';
+      ui.show('recipes');
+    },
     'open-howto-title': () => { uiReturn = 'title'; ui.show('howto'); mode = 'howto'; },
     'open-howto-pause': () => { uiReturn = 'pause'; ui.show('howto'); mode = 'howto'; },
     'open-settings-title': () => { uiReturn = 'title'; ui.renderSettings(WW.settings); ui.show('settings'); mode = 'settings'; },
@@ -543,6 +876,8 @@ WW.createGame = (canvas) => {
       ui.showToast('Progress reset. Nice and tidy!');
     },
     'resume': resume,
+    'revive-accept': reviveNow,
+    'revive-decline': reviveCountdownEnd,
     'restart': () => {
       settleRun();
       ui.showNone(); ui.hud.show(true);
@@ -616,13 +951,14 @@ WW.createGame = (canvas) => {
 
   /* keyboard pause + audio unlock */
   /* first tap or key anywhere (home included) wakes audio and starts the
-   * music — browsers block sound until the player interacts */
+   * music, browsers block sound until the player interacts */
   const wakeAudio = () => { WW.Audio.unlock(); if (!WW.Audio.running) WW.Audio.musicOn(); };
   addEventListener('keydown', (e) => {
     wakeAudio();
     if ((e.key === 'Escape' || e.key === 'p' || e.key === 'P') && (mode === 'play' || mode === 'pause')) {
       mode === 'play' ? pause(true) : resume();
     }
+    if (e.key === 'Escape' && mode === 'cooking') actions['cook-abort']();
   }, { capture: true });
   addEventListener('pointerdown', wakeAudio, { capture: true });
 
@@ -640,12 +976,12 @@ WW.createGame = (canvas) => {
       } else {
         ui.renderProfile({ name: 'Guest', face: '' }, false);
       }
-    } catch { /* offline — hide card? docs: guests look the same */ }
+    } catch { /* offline, hide card? docs: guests look the same */ }
   };
   refreshPlayer();
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshPlayer(); });
 
-  /* force a first build so the title has a scene behind it? canvas stays cream — fine */
+  /* force a first build so the title has a scene behind it? canvas stays cream, fine */
 
   return {
     /* debug/test surface */

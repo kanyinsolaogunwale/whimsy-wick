@@ -1,18 +1,18 @@
 /**
- * Whimsy Wick — js/world/art.js
+ * Whimsy Wick, js/world/art.js
  * ---------------------------------------------------------------
  * All in-world art is drawn to canvas, then used as CanvasTextures on
  * THREE.Mesh planes. Everything procedural (assignment §14 licensing) and
  * pastel storybook (§7).
  *
  * Style rules (kept consistent everywhere so items READ clearly):
- *   — every prop gets a soft dark outline (rgba cocoa), never flat
- *   — items sit on a baseline with a small shadow
- *   — the counter runs all the way to the bottom of the screen with
+ *  , every prop gets a soft dark outline (rgba cocoa), never flat
+ *  , items sit on a baseline with a small shadow
+ *  , the counter runs all the way to the bottom of the screen with
  *     drawers/cupboards/oven, like the original prototype's countertop
  *
  * §1  Tileable background strips (wall, shelves, counters, window…)
- * §2  Character sprite painter — live redraw per animation state
+ * §2  Character sprite painter, live redraw per animation state
  * §3  Hazard sprites + ground decals (butter/milk/jam puddles)
  * §4  Collectibles (magic spark, star gem) and the goal lantern
  * §5  Countertop clutter + end-scene vignette support
@@ -23,7 +23,7 @@ const WW = window.WW;
 const P = WW.PALETTE;
 const { rr, fillText } = WW;
 
-/* Shared outline ink — softer than pure black, keeps objects readable. */
+/* Shared outline ink, softer than pure black, keeps objects readable. */
 const OUT = 'rgba(122, 87, 55, .85)';       // cocoa outline
 const OUT2 = 'rgba(122, 87, 55, .45)';      // faint outline
 const WHITE = '#ffffff';
@@ -40,7 +40,7 @@ WW.tex('bg-window', 300, 150, (c, w, h) => {
   // frame
   c.fillStyle = '#e9d9ba'; rr(c, 0, 4, w, h - 8, 12); c.fill();
   c.strokeStyle = 'rgba(122,87,55,.8)'; c.lineWidth = 2.6; rr(c, 0, 4, w, h - 8, 12); c.stroke();
-  // glass — deep night for strong contrast against pastel walls
+  // glass, deep night for strong contrast against pastel walls
   const sky = c.createLinearGradient(0, 12, 0, h - 20);
   sky.addColorStop(0, '#332b64'); sky.addColorStop(1, '#56447a');
   c.fillStyle = sky; rr(c, 10, 14, w - 20, h - 34, 8); c.fill();
@@ -223,10 +223,10 @@ WW.tex('bg-props', 640, 300, (c, w) => {
   fillText(c, '★', 402, 230, 2, '#fff3dd');
 });
 
-/** The counter the player walks on — one plain countertop slab on top,
+/** The counter the player walks on, one plain countertop slab on top,
  *  cupboards below, filling the whole bottom of the screen. */
 WW.tex('bg-counter', 640, 360, (c, w, h) => {
-  // countertop slab (the walking surface) — continuous, no tiles
+  // countertop slab (the walking surface), continuous, no tiles
   c.fillStyle = '#f3dcb6'; c.fillRect(0, 0, w, 54);
   c.fillStyle = '#fbebd0'; c.fillRect(0, 0, w, 7);              // lit top edge
   c.fillStyle = 'rgba(122,87,55,.55)'; c.fillRect(0, 7, w, 2);  // top-face crease
@@ -273,12 +273,12 @@ WW.tex('bg-counter', 640, 360, (c, w, h) => {
 });
 
 /* ================================================================
- * §2  Character painter — prototype silhouette, five personalities
+ * §2  Character painter, prototype silhouette, five personalities
  * ================================================================ */
 /* Based directly on the original #ghee: warm rounded body with a thin
  * darker border, pink blush, tiny arms and feet, subtle glow. Each spirit
  * has its own silhouette (ch.shape), eyes (ch.eyes), mouth (ch.mouth),
- * colour, accessory and idle rhythm — but all five share the same hitbox
+ * colour, accessory and idle rhythm, but all five share the same hitbox
  * and movement, so the choice is purely cosmetic (§3.2). */
 
 /**
@@ -369,7 +369,7 @@ WW.paintSpirit = (c, w, h, s) => {
     c.closePath();
   };
 
-  // ---- ground shadow (not while flipping — it would spin with the body) ----
+  // ---- ground shadow (not while flipping, it would spin with the body) ----
   if (!spin) {
     c.fillStyle = 'rgba(74,53,36,.14)';
     c.beginPath(); c.ellipse(0, 1, W * 0.62, 5.5, 0, 0, 7); c.fill();
@@ -500,25 +500,66 @@ WW.paintSpirit = (c, w, h, s) => {
   const acc = tint?.primary || ch.accent;
   const ac = ch.accessory;
   if (ac === 'leaf') {
+    /* one clean mint leaf on a short stem: a single tilted oval with a rib
+     * and a small sheen, crisper at preview size than the two-lobe sprout */
+    const dark = tint?.primary ? 'rgba(0,0,0,.2)' : (ch.accentDark || '#5fae8d');
     c.fillStyle = acc;
-    c.beginPath(); c.ellipse(3, -H - 5, 10.5, 5.6, 0.5, 0, 7); c.fill();
-    c.strokeStyle = '#4e7a5b'; c.lineWidth = 1.5;
-    c.beginPath(); c.moveTo(-3, -H - 5.6); c.lineTo(9.5, -H - 3.6); c.stroke();
+    // stem
+    c.strokeStyle = dark; c.lineWidth = 2.2; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(-0.5, -H + 2); c.quadraticCurveTo(-0.2, -H - 3, 0.8, -H - 6); c.stroke();
+    // leaf: base at the stem tip, sweeping up and to the right
+    c.beginPath();
+    c.moveTo(0.8, -H - 6);
+    c.quadraticCurveTo(-2, -H - 14, 8, -H - 15.5);    // outer edge to the tip
+    c.quadraticCurveTo(11, -H - 8, 0.8, -H - 6);      // inner edge back to the base
+    c.closePath(); c.fill();
+    // rib toward the tip
+    c.strokeStyle = dark; c.lineWidth = 1.5; c.globalAlpha = .6;
+    c.beginPath(); c.moveTo(2, -H - 7); c.quadraticCurveTo(4.5, -H - 11, 7.6, -H - 14); c.stroke();
+    c.globalAlpha = 1;
+    // tiny sheen
+    c.fillStyle = 'rgba(255,255,255,.35)';
+    c.beginPath(); c.ellipse(3.4, -H - 12.2, 2.6, 1.4, -0.5, 0, 7); c.fill();
   }
   if (ac === 'nightcap') {
-    c.fillStyle = tint?.primary || '#b79adf';
-    c.beginPath(); c.moveTo(-13, -H - 2); c.quadraticCurveTo(2, -H - 24, 15, -H - 3); c.closePath(); c.fill();
-    c.strokeStyle = tint?.primary; c.lineWidth = 2.4; c.stroke();
-    c.fillStyle = '#fff';
-    c.beginPath(); c.arc(14, -H - 4, 3.2, 0, 7); c.fill();
+    /* a real nightcap: cream band tucked over the scalp, soft dome flopping
+     * to the right with a pom-pom at the droop tip (start.ng tint aware) */
+    const d = tint?.primary || ch.accent || '#b79adf';
+    const dark = tint?.primary ? 'rgba(0,0,0,.18)' : (ch.accentDark || '#9b74d2');
+    const bone = '#fffaf0';
+    // dome + soft shoulder + droop tip, closed back into the fold
+    c.fillStyle = d;
+    c.beginPath();
+    c.moveTo(-13.5, -H - 2);
+    c.quadraticCurveTo(-4, -H - 21, 6, -H - 17);
+    c.quadraticCurveTo(15, -H - 13.5, 20, -H - 9);
+    c.quadraticCurveTo(24.5, -H - 5.5, 22, -H - 1.5);
+    c.quadraticCurveTo(17.5, -H + 1.5, 13, -H - 1);
+    c.closePath(); c.fill();
+    c.strokeStyle = dark; c.lineWidth = 2; c.lineCap = 'round'; c.stroke();
+    // crease from the crown toward the droop tip
+    c.strokeStyle = dark; c.globalAlpha = .45; c.lineWidth = 1.6;
+    c.beginPath(); c.moveTo(2, -H - 14.5); c.quadraticCurveTo(12, -H - 12, 19.5, -H - 5.5); c.stroke();
+    c.globalAlpha = 1;
+    // cream band on top of the cap so the fabric tucks inside it
+    c.fillStyle = bone;
+    rr(c, -14, -H - 2.5, 28.5, 5, 2.5); c.fill();
+    c.strokeStyle = dark; c.lineWidth = 1.5; rr(c, -14, -H - 2.5, 28.5, 5, 2.5); c.stroke();
+    // pom-pom
+    c.fillStyle = bone; c.beginPath(); c.arc(22.5, -H - 2.5, 3.6, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,.15)'; c.lineWidth = 1.2; c.stroke();
   }
   if (ac === 'acorn') {
-    c.fillStyle = '#96612f';
+    /* the little beret wears the spirit's own colours (Pip: mint), not fixed
+     * brown, start.ng tints override through `acc` automatically */
+    c.fillStyle = acc;
     c.beginPath(); c.arc(1, -H - 4, 9.5, Math.PI, 0); c.fill();
-    c.strokeStyle = '#7a4a22'; c.lineWidth = 2; c.stroke();
-    c.fillStyle = tint?.primary || '#c98a4b';
+    c.strokeStyle = ch.accentDark || acc; c.lineWidth = 2; c.stroke();
+    c.fillStyle = '#fffaf0';
     rr(c, -10.5, -H - 6.5, 23, 5.4, 2.7); c.fill();
-    c.fillStyle = '#96612f'; c.fillRect(-0.8, -H - 14, 3.6, 4.4);
+    c.strokeStyle = ch.accentDark || acc; c.lineWidth = 1.6;
+    rr(c, -10.5, -H - 6.5, 23, 5.4, 2.7); c.stroke();
+    c.fillStyle = ch.accentDark || acc; c.fillRect(-0.8, -H - 14, 3.6, 4.4);
   }
   if (ac === 'scarf') {
     c.fillStyle = tint?.primary || '#f9737f';
@@ -565,7 +606,7 @@ WW.flipAngle = (ch, vy, jumps, dir) => {
 };
 
 /* ================================================================
- * §3  Hazards & surface decals — outlined so threats read fast
+ * §3  Hazards & surface decals, outlined so threats read fast
  * ================================================================ */
 /* Hazards get the darkest outline in the scene (HZ) at a heavier weight
  * than background props, plus saturated fills, so they pop off the
@@ -696,7 +737,7 @@ WW.tex('hz-shadow', 100, 20, (c) => {
 /* ================================================================
  * §4  Collectibles + goal
  * ================================================================ */
-/** Coin pickup — same look as the HUD coin so players connect the two. */
+/** Coin pickup, same look as the HUD coin so players connect the two. */
 WW.tex('co-spark', 44, 44, (c) => {
   c.fillStyle = '#ffd25e';
   c.beginPath(); c.arc(22, 22, 19, 0, 7); c.fill();

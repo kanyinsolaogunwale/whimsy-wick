@@ -1,5 +1,5 @@
 /**
- * Whimsy Wick — js/sound/audio.js
+ * Whimsy Wick, js/sound/audio.js
  * ---------------------------------------------------------------
  * Cozy audio:
  *  • music: "Happy Lullaby (song17)" by cynicmusic (CC0, OpenGameArt) from
@@ -46,8 +46,8 @@ WW.Audio = (() => {
     if (ctx.state === 'suspended') ctx.resume().then(() => { if (wantMusic) startMusic(); }).catch(() => {});
   };
 
-  /* Go quiet when the player leaves — tab hidden, window unfocused (app sent
-   * to the background / pane hidden), or page closed — and wake on return. */
+  /* Go quiet when the player leaves, tab hidden, window unfocused (app sent
+   * to the background / pane hidden), or page closed, and wake on return. */
   let away = false;
   const goAway = () => {
     away = true;
@@ -224,7 +224,7 @@ WW.Audio = (() => {
     set(name, v) { st[name] = v; applyVolumes(); },
     setMute(v) { st.mute = v; applyVolumes(); },
     /* A context made before any tap (e.g. by a hover tick) starts suspended
-     * and resume() is async, so don't drop the request — start on wake. */
+     * and resume() is async, so don't drop the request, start on wake. */
     musicOn() {
       if (!ready()) return;
       wantMusic = true;

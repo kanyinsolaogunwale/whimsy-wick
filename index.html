@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="./css/main.css?v=6" />
+<link rel="stylesheet" href="./css/main.css?v=83" />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='18' r='11' fill='%23ffd66b'/><circle cx='16' cy='16' r='9' fill='%23ffedb0'/></svg>" />
 </head>
 <body>
@@ -18,6 +18,7 @@
 <div id="hud" class="hidden">
   <div class="hud-left">
     <span id="hud-level" class="hud-chip hud-chip-title">The Sleepy Counter</span>
+    <span id="hud-ingredients" class="hud-ings hidden" aria-live="polite"></span>
   </div>
   <div class="hud-right">
     <span class="hud-chip hud-coin hidden" id="hud-coins">
@@ -52,27 +53,65 @@
     <span id="tut-tap" class="tut-tap"></span>
     <span id="tut-step" class="tut-step">1 / 3</span>
   </div>
-</div>
+</div>  <!-- hazard hint toast -->
+  <div id="hint-toast" class="ui-block hidden"><div class="hint-card" id="hint-toast-text"></div></div>
 
-<!-- hazard hint toast -->
-<div id="hint-toast" class="ui-block hidden"><div class="hint-card" id="hint-toast-text"></div></div>
+  <!-- level-end Cook-Along (one recipe per story level) -->
+  <div id="cook-overlay" class="ui-block hidden">
+    <div class="cook-panel">
+      <div class="cook-head">
+        <h2 id="cook-dish" class="cook-dish"></h2>
+        <button class="btn btn-soft" id="cook-abort">Skip cooking</button>
+      </div>
+      <div id="cook-ings" class="cook-ings"></div>
+      <canvas id="cook-canvas" class="cook-canvas"></canvas>
+    </div>
+  </div>
+
+  <!-- continue-after-a-crash revival offer (spend gems, keeps the run) -->
+  <div id="revive-overlay" class="ui-block hidden">
+    <div class="revive-card">
+      <h3 class="revive-title">Keep running?</h3>
+      <p class="revive-sub" id="revive-sub"></p>
+      <div class="menu-row">
+        <button id="revive-yes" class="btn btn-primary"><span class="buy-label">Continue</span><span class="char-price" id="revive-cost"></span></button>
+        <button id="revive-no" class="btn btn-soft">No thanks</button>
+      </div>
+      <span id="revive-count" class="revive-count" aria-live="polite"></span>
+    </div>
+  </div>
 
 <!-- =================== additional screens =================== -->
 <div id="screens">
 
   <!-- ============ TITLE ============ -->
   <section class="screen" id="screen-title">
+    <!-- painted night-kitchen backdrop: real game textures, laid out for
+         the current viewport (landscape spreads wide, portrait stacks) -->
+    <canvas class="title-scene" id="title-scene" aria-hidden="true"></canvas>
+    <div class="title-wash" aria-hidden="true"></div>
+    <!-- the five spirits drift through the night sky above the kitchen -->
+    <canvas id="title-spirits" class="title-spirits" aria-label="The five spirits floating in the night sky"></canvas>
+    <div class="title-deco" aria-hidden="true">
+      <canvas class="td-coin" data-tex="co-spark" width="44" height="44"></canvas>
+      <canvas class="td-gem" data-tex="co-gem" width="40" height="40"></canvas>
+      <canvas class="td-egg" data-tex="ing-egg" width="40" height="40"></canvas>
+      <canvas class="td-tomato" data-tex="ing-tomato" width="40" height="40"></canvas>
+      <span class="td-star td-s1"></span><span class="td-star td-s2"></span>
+      <span class="td-star td-s3"></span><span class="td-star td-s4"></span>
+      <span class="td-star td-s5"></span><span class="td-star td-s6"></span>
+    </div>
     <div class="title-card">
       <!-- cute font title + hero art -->
       <h1 class="game-title" id="game-title">Whimsy Wick</h1>
-      <div class="hero-band">
-        <canvas id="title-hero" width="300" height="200"></canvas>
-      </div>
-      <p class="tagline">A tiny kitchen spirit. One night to relight the magic.</p>
       <div class="menu-stack">
         <button class="tile-btn primary" id="btn-story" aria-label="Story mode">
           <span class="tb-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1.8 1.6 3 3.7 3 6.5S13.8 14 12 15.6C10.2 14 9 11.8 9 9.5S10.2 4.6 12 3z" fill="currentColor" opacity=".28"/><path d="M12 15.6c1.8 1.5 3 3.4 3 5.4H9c0-2 1.2-3.9 3-5.4z" fill="currentColor" opacity=".28"/><path d="M12 3c1.8 1.6 3 3.7 3 6.5s-1.2 4.5-3 6.1c-1.8-1.6-3-3.4-3-6.1S10.2 4.6 12 3z"/><path d="M12 15.6c1.8 1.5 3 3.4 3 5.4H9c0-2 1.2-3.9 3-5.4z"/><path d="M12 15.6V21" opacity=".5"/></svg></span>
           <span class="tb-label">Story mode</span>
+        </button>
+        <button class="tile-btn" id="btn-recipes" aria-label="Whimsical Kitchen">
+          <span class="tb-ic">🍳</span>
+          <span class="tb-label">Whimsical Kitchen</span>
         </button>
         <button class="tile-btn" id="btn-endless" aria-label="Endless mode">
           <span class="tb-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4Zm0 0c2 2.67 4 4 6 4a4 4 0 1 0 0-8c-2 0-4 1.33-6 4Z"/></svg></span>
@@ -80,14 +119,14 @@
         </button>
       </div>
       <div class="menu-row title-topbar">
-        <button class="icon-btn" id="btn-chars" aria-label="Characters">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M4.5 20.5c0-3.6 3.4-6.5 7.5-6.5s7.5 2.9 7.5 6.5"/></svg>
+        <button class="icon-btn" id="btn-chars" aria-label="Shop">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><g transform="translate(-4.764 -4.4) scale(1.32)"><path d="M4.5 7h15l1.4 3.4c0 1.2-1 2.2-2.2 2.2-1 0-1.9-.7-2.1-1.7-.2 1-1.1 1.7-2.1 1.7-.6 0-1.2-.2-1.6-.6-.4.4-1 .6-1.6.6-1 0-1.9-.7-2.1-1.7-.2 1-1.1 1.7-2.1 1.7-1.2 0-2.2-1-2.2-2.2z" fill="#ffd66b" stroke="#b8791f" stroke-width="1.7" stroke-linejoin="round"/><rect x="5" y="13.2" width="14" height="7.3" rx="1.6" fill="#f3e4c6" stroke="#b8791f" stroke-width="1.7"/><rect x="10.4" y="14.6" width="3.2" height="5.9" rx="1" fill="#c7b8e8" stroke="#b8791f" stroke-width="1.2"/></g></svg>
         </button>
         <button class="icon-btn" id="btn-howto" aria-label="How to play">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.9h13.6a1.3 1.3 0 0 1 1.3 1.3v15.6a1.3 1.3 0 0 1-1.3 1.3H6a2.6 2.6 0 0 1-2.6-2.6V5.5A2.6 2.6 0 0 1 6 2.9Z" fill="#f3e4c6" stroke="#b8791f" stroke-width="1.8" stroke-linejoin="round"/><path d="M14.3 2.9v6.6l2.1-1.4 2.1 1.4V2.9Z" fill="#c7b8e8" stroke="#b8791f" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.9 14.9h9.4" stroke="#c98a4b" stroke-width="1.6" stroke-linecap="round"/><path d="M6.9 17.6h6.1" stroke="#c98a4b" stroke-width="1.6" stroke-linecap="round"/></svg>
         </button>
         <button class="icon-btn" id="btn-settings" aria-label="Settings">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.56-1.11 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.08a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.08a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.03Z"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="#f3e4c6" stroke="#b8791f" stroke-width="1.7"><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(45 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(90 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(135 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(180 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(225 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(270 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(315 12 12)"/></g><circle cx="12" cy="12" r="6.1" fill="#f3e4c6" stroke="#b8791f" stroke-width="1.8"/><circle cx="12" cy="12" r="2.7" fill="#ffd66b" stroke="#b8791f" stroke-width="1.6"/></svg>
         </button>
       </div>
       <!-- your records, top-centre of home -->
@@ -123,20 +162,21 @@
   <section class="screen overlay-screen hidden" id="screen-chars">
     <div class="panel">
       <div class="modal-head">
-        <h2>Who hops tonight?</h2>
+        <h2>Shop</h2>
         <button class="x-btn" data-close="chars" aria-label="Close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
-      <div class="chars-sub">
-        <p class="screen-sub">Same hops, different style. Pricier spirits move with more flair. Short on coins? Each gem counts as 20.</p>
-        <span class="chars-balance" id="chars-balance"></span>
+      <div class="shop-tabs" role="tablist">
+        <span class="shop-ind" aria-hidden="true"></span>
+        <button class="shop-tab sel" id="tab-spirits" type="button">Spirits</button>
+        <button class="shop-tab" id="tab-shelf" type="button">Kitchen Shelf</button>
       </div>
-      <div id="char-grid" class="char-grid"></div>
-      <div class="menu-row">
-        <button class="btn btn-primary" id="chars-confirm">Play as Ghee</button>
+      <div class="shop-body">
+        <div id="char-grid" class="char-grid"></div>
+        <div id="shelf-grid" class="shelf-grid hidden"></div>
+        <p class="chars-note" id="chars-note" aria-live="polite"></p>
       </div>
-      <p class="chars-note" id="chars-note" aria-live="polite"></p>
     </div>
   </section>
 
@@ -152,23 +192,28 @@
       <div class="howto-cols">
         <div class="howto-box">
           <h3>Move</h3>
-          <p><b>Keyboard:</b> Space / ↑ / W to hop (tap again in mid-air for a double hop) · Esc to pause. Ghee runs on their own, so hopping is all there is!</p>
-          <p><b>Touch:</b> tap to hop · hold for a higher hop · tap again mid-air to double hop</p>
+          <p><b>Keyboard:</b> Space / ↑ / W hops · tap again mid-air for a double hop · Esc pauses.</p>
+          <p><b>Touch:</b> tap = hop · hold = higher hop · tap again mid-air to double.</p>
         </div>
         <div class="howto-box">
           <h3>Collect</h3>
-          <p><b><svg class="hud-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#ffe08a" stroke="#b8791f" stroke-width="2.4"/><path d="M12 8.2l1.1 2.2 2.4.3-1.8 1.8.5 2.4-2.2-1.2-2.2 1.2.5-2.4-1.8-1.8 2.4-.3z" fill="#c98a1e" opacity=".85"/></svg> Coins</b> line the counter. Bank them for keeps.</p>
-          <p><b><svg class="hud-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l7 5.2-2.4 10H7.4L5 7.8z" fill="#d5c6f5" stroke="#8f74c9" stroke-width="2.2" stroke-linejoin="round"/><path d="M9.6 7.8l2.4 10 2.4-10-2.4-3.4z" fill="#a98fd9" opacity=".6"/></svg> Gems</b> hide up high and are worth a detour. In the shop, each gem tops up 20 coins.</p>
+          <p><b><svg class="hud-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#ffe08a" stroke="#b8791f" stroke-width="2.4"/><path d="M12 8.2l1.1 2.2 2.4.3-1.8 1.8.5 2.4-2.2-1.2-2.2 1.2.5-2.4-1.8-1.8 2.4-.3z" fill="#c98a1e" opacity=".85"/></svg> Coins</b> line the counter, bank them for keeps.</p>
+          <p><b><svg class="hud-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l7 5.2-2.4 10H7.4L5 7.8z" fill="#d5c6f5" stroke="#8f74c9" stroke-width="2.2" stroke-linejoin="round"/><path d="M9.6 7.8l2.4 10 2.4-10-2.4-3.4z" fill="#a98fd9" opacity=".6"/></svg> Gems</b> hide up high, each spends like 20 coins in the shop.</p>
+        </div>
+        <div class="howto-box">
+          <h3>Cook &amp; Learn</h3>
+          <p>Gather real ingredients as you run, they bank in the pantry.</p>
+          <p>Open the <b>Whimsical Kitchen</b> from the menu, pick a recipe, see how it's made, then cook it.</p>
         </div>
         <div class="howto-box">
           <h3>Watch out</h3>
           <div id="howto-hazards" class="howto-hazards"></div>
           <ul class="howto-list">
-            <li><b>Flour:</b> soft, but too dusty to walk through. Hop it.</li>
-            <li><b>Rolling pins:</b> they patrol. Time your hop.</li>
-            <li><b>Butter &amp; milk:</b> slippery. Ghee glides through, so hop over what hides ahead.</li>
-            <li><b>Jam:</b> sticky. It slows you down.</li>
-            <li><b>Little fans:</b> they hold you to a crawl. Hop over the breeze.</li>
+            <li><b>Flour:</b> too dusty, hop it.</li>
+            <li><b>Pins:</b> they patrol, time your hop.</li>
+            <li><b>Butter &amp; milk:</b> slippery, hop early.</li>
+            <li><b>Jam:</b> sticky, it slows you.</li>
+            <li><b>Fans:</b> a slowing breeze, hop over.</li>
           </ul>
         </div>
       </div>
@@ -242,7 +287,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
-      <p class="screen-sub">Your kitchen saves itself either way. Signing in keeps your coins on the nightly leaderboard.</p>
+      <p class="screen-sub">Your kitchen saves itself. Sign in to keep your coins on the nightly leaderboard.</p>
       <div class="menu-row">
         <button class="btn btn-primary" id="signin-go">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="btn-ic"><path d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M4.5 20.5c0-3.6 3.4-6.5 7.5-6.5s7.5 2.9 7.5 6.5"/></svg>
@@ -262,19 +307,19 @@
       </div>
       <div class="menu-row big-row">
         <button class="icon-btn big" id="pause-resume" aria-label="Resume">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.4 6.1c0-1.5 1.6-2.4 2.9-1.6l8 4.9c1.3.8 1.3 2.6 0 3.4l-8 4.9c-1.3.8-2.9-.2-2.9-1.7Z" fill="#f3e4c6" stroke="#b8791f" stroke-width="1.8" stroke-linejoin="round"/><path d="M11 9.4l4.6 2.6-4.6 2.6Z" fill="#ffd66b" stroke="#b8791f" stroke-width="1.2" stroke-linejoin="round"/></svg>
         </button>
         <button class="icon-btn big" id="pause-restart" aria-label="Restart">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 3v5h5"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.05 12a8 8 0 1 0 2.4-5.7" fill="none" stroke="#b8791f" stroke-width="2.4" stroke-linecap="round"/><path d="M3.1 3.3v5.2h5.2Z" fill="#c7b8e8" stroke="#b8791f" stroke-width="1.6" stroke-linejoin="round"/></svg>
         </button>
         <button class="icon-btn big" id="pause-howto" aria-label="How to play">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.9h13.6a1.3 1.3 0 0 1 1.3 1.3v15.6a1.3 1.3 0 0 1-1.3 1.3H6a2.6 2.6 0 0 1-2.6-2.6V5.5A2.6 2.6 0 0 1 6 2.9Z" fill="#f3e4c6" stroke="#b8791f" stroke-width="1.8" stroke-linejoin="round"/><path d="M14.3 2.9v6.6l2.1-1.4 2.1 1.4V2.9Z" fill="#c7b8e8" stroke="#b8791f" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.9 14.9h9.4" stroke="#c98a4b" stroke-width="1.6" stroke-linecap="round"/><path d="M6.9 17.6h6.1" stroke="#c98a4b" stroke-width="1.6" stroke-linecap="round"/></svg>
         </button>
         <button class="icon-btn big" id="pause-settings" aria-label="Settings">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.56-1.11 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.08a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.08a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.03Z"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="#f3e4c6" stroke="#b8791f" stroke-width="1.7"><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(45 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(90 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(135 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(180 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(225 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(270 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(315 12 12)"/></g><circle cx="12" cy="12" r="6.1" fill="#f3e4c6" stroke="#b8791f" stroke-width="1.8"/><circle cx="12" cy="12" r="2.7" fill="#ffd66b" stroke="#b8791f" stroke-width="1.6"/></svg>
         </button>
         <button class="icon-btn big" id="pause-menu" aria-label="Main menu">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20h5v-6h3v6h5V9.5"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.4 10.6 12 3.7l7.6 6.9v8.6a1.6 1.6 0 0 1-1.6 1.6H6a1.6 1.6 0 0 1-1.6-1.6Z" fill="#f3e4c6" stroke="#b8791f" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20.6v-4.4a2 2 0 0 1 4 0v4.4Z" fill="#ffd66b" stroke="#b8791f" stroke-width="1.5" stroke-linejoin="round"/></svg>
         </button>
       </div>
     </div>
@@ -289,23 +334,55 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
-      <p id="result-flavour" class="result-flavour"></p>
+      <div id="result-dish" class="result-dish hidden"></div>
+      <div id="result-collected" class="result-collected"></div>
       <div id="result-stats" class="result-stats"></div>
-      <a id="result-share" class="btn btn-share hidden" href="#" target="_blank" rel="noopener noreferrer" aria-label="Share this result on X">Share on X</a>
       <div class="menu-row big-row">
         <button class="icon-btn big" id="result-settings" aria-label="Settings">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.56-1.11 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.08a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.08a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.03Z"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="#f3e4c6" stroke="#b8791f" stroke-width="1.7"><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(45 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(90 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(135 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(180 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(225 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(270 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(315 12 12)"/></g><circle cx="12" cy="12" r="6.1" fill="#f3e4c6" stroke="#b8791f" stroke-width="1.8"/><circle cx="12" cy="12" r="2.7" fill="#ffd66b" stroke="#b8791f" stroke-width="1.6"/></svg>
         </button>
         <button class="icon-btn big" id="result-replay" aria-label="Retry level">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 3v5h5"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.05 12a8 8 0 1 0 2.4-5.7" fill="none" stroke="#b8791f" stroke-width="2.4" stroke-linecap="round"/><path d="M3.1 3.3v5.2h5.2Z" fill="#c7b8e8" stroke="#b8791f" stroke-width="1.6" stroke-linejoin="round"/></svg>
         </button>
         <button class="icon-btn big primary" id="result-primary" aria-label="Next level">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13"/><path d="M13 6l6 6-6 6"/></svg>
         </button>
+        <button class="icon-btn big" id="result-share" aria-label="Share this result">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 11.2l7-4.6M8 12.8l7 4.6" stroke="#b8791f" stroke-width="1.8" stroke-linecap="round"/><g fill="#f3e4c6" stroke="#b8791f" stroke-width="1.7"><circle cx="6" cy="12" r="2.6"/><circle cx="17.4" cy="6.2" r="2.6"/><circle cx="17.4" cy="17.8" r="2.6"/></g><circle cx="17.4" cy="6.2" r="1" fill="#ffd66b"/></svg>
+        </button>
         <button class="icon-btn big" id="result-menu" aria-label="Main menu">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20h5v-6h3v6h5V9.5"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.4 10.6 12 3.7l7.6 6.9v8.6a1.6 1.6 0 0 1-1.6 1.6H6a1.6 1.6 0 0 1-1.6-1.6Z" fill="#f3e4c6" stroke="#b8791f" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20.6v-4.4a2 2 0 0 1 4 0v4.4Z" fill="#ffd66b" stroke="#b8791f" stroke-width="1.5" stroke-linejoin="round"/></svg>
         </button>
       </div>
+    </div>
+  </section>
+
+  <!-- ============ SHARE ============ -->
+  <section class="screen overlay-screen hidden" id="screen-share">
+    <div class="panel">
+      <div class="modal-head">
+        <h2>Share</h2>
+        <button class="x-btn" data-close="share" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <p class="screen-sub">Where should tonight's kitchen tale go? Your words come along on every pick.</p>
+      <div id="share-grid" class="share-grid"></div>
+    </div>
+  </section>
+
+  <!-- ============ WHIMSICAL KITCHEN (recipe list + how-to + cook) ============ -->
+  <section class="screen overlay-screen hidden" id="screen-recipes">
+    <div class="panel recipes-panel">
+      <div class="modal-head">
+        <h2>Whimsical Kitchen</h2>
+        <button class="x-btn" data-close="recipes" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div id="kitchen-pantry" class="kitchen-pantry"></div>
+      <div id="recipes-daily" class="recipes-daily"></div>
+      <div id="recipes-grid" class="recipes-grid"></div>
     </div>
   </section>
 
@@ -318,7 +395,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
-      <p class="result-flavour">Every wick is lit. Ghee curls up on the warm tiles, one last spark tucked under the leaf cap, and lets the kitchen sing itself back to sleep.</p>
+      <p class="result-flavour">Every wick is lit. Ghee curls up on the warm tiles and lets the kitchen sleep.</p>
       <canvas id="ending-art" width="360" height="240"></canvas>
       <div class="menu-row">
         <button class="btn btn-primary" id="ending-menu">Back to the title</button>
@@ -327,6 +404,6 @@
   </section>
 </div>
 
-<script type="module" src="./js/main.js?v=6"></script>
+<script type="module" src="./js/main.js?v=28"></script>
 </body>
 </html>

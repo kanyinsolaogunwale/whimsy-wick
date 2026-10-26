@@ -1,5 +1,5 @@
 /**
- * Whimsy Wick — js/game/persist.js
+ * Whimsy Wick, js/game/persist.js
  * ---------------------------------------------------------------
  * Local save (docs "Good to know": personal data lives in localStorage).
  * Versioned + corruption-safe: an unreadable save is discarded once and
@@ -20,8 +20,14 @@ const fresh = () => ({
   tutorialDone: false,
   gestureHintDone: false,
   endless: { best: 0, bestDistance: 0, runs: [] }, // runs: top 10 by score
-  stats: { coinsEarned: 0, gemsEarned: 0, runs: 0 }, // lifetime totals
+  stats: { coinsEarned: 0, gemsEarned: 0, runs: 0, dishesCooked: 0 }, // lifetime totals
   hintSeen: {},                                    // per-hazard hints learned
+  recipes: {},                                     // recipe id → { cooked, stars, fullIngredients }
+  tools: [],                                       // vital items banked from cooking (unlock chain)
+  factsSeen: {},                                   // Cook & Learn fact toasts shown
+  kitchen: [],                                     // Kitchen Shelf items owned
+  pantry: {},                                      // Cook & Learn: gathered ingredients, by kind, spent in the Kitchen
+  dailyCooked: '',                                 // last UTC day the daily special paid double
 });
 
 let cur = null;
@@ -47,6 +53,12 @@ WW.persist = {
     if (!Array.isArray(cur.endless.runs)) cur.endless.runs = [];
     cur.stats = { ...f.stats, ...(cur.stats || {}) };
     cur.hintSeen = { ...f.hintSeen, ...(cur.hintSeen || {}) };
+    cur.recipes = (cur.recipes && typeof cur.recipes === 'object') ? cur.recipes : {};
+    cur.tools = Array.isArray(cur.tools) ? cur.tools.filter(t => typeof t === 'string') : [];
+    cur.factsSeen = (cur.factsSeen && typeof cur.factsSeen === 'object') ? cur.factsSeen : {};
+    cur.kitchen = Array.isArray(cur.kitchen) ? cur.kitchen.filter(t => typeof t === 'string') : [];
+    cur.pantry = (cur.pantry && typeof cur.pantry === 'object') ? cur.pantry : {};
+    cur.dailyCooked = typeof cur.dailyCooked === 'string' ? cur.dailyCooked : '';
     cur.wallet = { coins: (cur.wallet && cur.wallet.coins) || 0, gems: (cur.wallet && cur.wallet.gems) || 0 };
     cur.tutorialDone = !!cur.tutorialDone;
     cur.gestureHintDone = !!cur.gestureHintDone;
@@ -55,7 +67,7 @@ WW.persist = {
     cur.character = typeof cur.character === 'string' && cur.owned.includes(cur.character) ? cur.character : f.character;
     return cur;
   },
-  save() { try { localStorage.setItem(KEY, JSON.stringify(cur)); } catch { /* storage off — game still fully playable */ } },
+  save() { try { localStorage.setItem(KEY, JSON.stringify(cur)); } catch { /* storage off, game still fully playable */ } },
   get data() { return cur; },
   reset() { cur = fresh(); WW.persist.save(); return cur; },
 };

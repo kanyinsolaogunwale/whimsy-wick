@@ -1,8 +1,8 @@
 /**
- * Whimsy Wick — js/characters/define.js
+ * Whimsy Wick, js/characters/define.js
  * Five magical kitchen spirits. Drawn in art.js §2; palettes + quirks here.
  * All five share identical hitbox + movement, so selection never unbalances
- * gameplay — only looks (assignment §3.2).
+ * gameplay, only looks (assignment §3.2).
  *
  * Shop: Ghee is free; the rest cost coins. `anim` is the move-set tier
  * (0–4): the pricier the spirit, the flashier its run/jump animation and
@@ -30,7 +30,7 @@ WW.CHARACTERS = [
     body: '#c7a6e8', bodyDark: '#9b74d2', cheek: '#f6a6b2',
     accessory: 'nightcap',        // sleepy lavender night cap
     shape: 'puff', eyes: 'sleepy', mouth: 'tiny', // tall marshmallow
-    price: 200, anim: 1, moves: 'Floaty hover · soft puffs',
+    price: 200, anim: 1, moves: 'Floaty hover',
     accent: '#e8dcf7', accentDark: '#b79adf',
     glow: '#ded1ff',
     bob: 1.7,
@@ -40,10 +40,10 @@ WW.CHARACTERS = [
     tag: 'Energetic · Curious · Quick feet',
     flavour: 'Counted every floor tile twice. Got a different number.',
     body: '#a8dcc3', bodyDark: '#5fae8d', cheek: '#f6a6b2',
-    accessory: 'acorn',           // tiny acorn beret
+    accessory: 'acorn',           // tiny acorn beret in the spirit's own mint
     shape: 'bean', eyes: 'big', mouth: 'smile',   // round little bean
-    price: 450, anim: 2, moves: 'Bouncy sprint · dust kicks',
-    accent: '#c98a4b', accentDark: '#96612f',
+    price: 450, anim: 2, moves: 'Bouncy sprint',
+    accent: '#a8dcc3', accentDark: '#5fae8d',
     glow: '#cfffdf',
     bob: 3.8,
   },
@@ -54,7 +54,7 @@ WW.CHARACTERS = [
     body: '#ffb98a', bodyDark: '#e89868', cheek: '#ff8f7d',
     accessory: 'scarf',           // miniature chef scarf
     shape: 'peach', eyes: 'sparkle', mouth: 'grin', // peach with a cleft
-    price: 800, anim: 3, moves: 'Front flips · sparkle trail',
+    price: 800, anim: 3, moves: 'Flips & sparkles',
     accent: '#f9737f', accentDark: '#d15660',
     glow: '#ffd9bf',
     bob: 3.0,
@@ -66,7 +66,7 @@ WW.CHARACTERS = [
     body: '#d4e0a5', bodyDark: '#a3b26b', cheek: '#f6a6b2',
     accessory: 'flower',          // pastel clover blossom pin
     shape: 'drop', eyes: 'calm', mouth: 'flat',   // dewdrop
-    price: 1200, anim: 4, moves: 'Double twirls · petals · afterimages',
+    price: 1200, anim: 4, moves: 'Double twirls',
     accent: '#f6a6b2', accentDark: '#e07d8b',
     glow: '#f0f7c8',
     bob: 2.0,

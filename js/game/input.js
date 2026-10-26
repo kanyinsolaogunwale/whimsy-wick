@@ -1,5 +1,5 @@
 /**
- * Whimsy Wick — js/game/input.js
+ * Whimsy Wick, js/game/input.js
  * ---------------------------------------------------------------
  * §9 of the assignment: mobile is gestures-only. Ghee trots forward on
  * their own, so hopping is the one control: tap = hop, hold = a higher
@@ -20,16 +20,26 @@ WW.Input = (canvasEl) => {
   let keyHeld = false;          // keyboard hop currently held
   let pressId = null;           // touch/pointer currently held
 
+  // the canvas must be focusable so keydowns land on the game even in
+  // embedded/desktop panes that keep keyboard focus on the host page
+  canvasEl.tabIndex = 0;
+  canvasEl.style.outline = 'none';
+
   // ---- keyboard: hop + pause (Ghee moves on their own) ----
-  addEventListener('keydown', (e) => {
+  const handleKey = (e, canvasTargeted) => {
     if (!enabled) return;
     const k = e.key;
     if (k === ' ' || k === 'ArrowUp' || k === 'w' || k === 'W') {
-      e.preventDefault();
+      if (canvasTargeted) e.preventDefault();
       if (!keyHeld) { keyHeld = true; st.jumpHeld = true; jumpDispatch && jumpDispatch(); anyEvent && anyEvent('jump'); }
     }
     if (k === 'Escape' || k === 'p' || k === 'P') { anyEvent && anyEvent('pause'); }
-  });
+  };
+  /* the same handler on the window AND on the canvas: whichever surface
+   * actually holds keyboard focus gets the key. The keyHeld guard makes a
+   * double delivery (canvas ⊂ window bubbling) harmless. */
+  addEventListener('keydown', (e) => handleKey(e, false));
+  canvasEl.addEventListener('keydown', (e) => handleKey(e, true));
   addEventListener('keyup', (e) => {
     const k = e.key;
     if (k === ' ' || k === 'ArrowUp' || k === 'w' || k === 'W') {
@@ -44,6 +54,7 @@ WW.Input = (canvasEl) => {
   canvasEl.addEventListener('pointerdown', (e) => {
     if (!isGamepoint(e) || pressId !== null) return;
     try { canvasEl.setPointerCapture(e.pointerId); } catch { /* synthetic/locked pointer */ }
+    canvasEl.focus({ preventScroll: true });   // keys follow wherever the player just touched
     pressId = e.pointerId;
     st.jumpHeld = true;
     jumpDispatch && jumpDispatch();

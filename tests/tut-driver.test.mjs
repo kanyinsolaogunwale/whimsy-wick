@@ -3,7 +3,7 @@
  * Sweeps the realistic tap spots: first hop as the flour arrives, then a
  * mid-air second hop at each frame from lift-off to apex, exactly like a
  * human tapping. Reports where Ghee lands relative to the floating
- * platform — the player-reported "jumps but falls to the floor" bug.
+ * platform, the player-reported "jumps but falls to the floor" bug.
  * Run: node tests/tut-driver.test.mjs  → exit 1 on failure.
  */
 import fs from 'node:fs';
@@ -30,7 +30,7 @@ const level1 = () => ({
 });
 
 /** Drive one run: hop before the flour (plus optional mid-air double hop),
- * and stop at the FIRST landing — the floor or the platform. */
+ * and stop at the FIRST landing, the floor or the platform. */
 function run(firstHopX, doubleHopX) {
   const w = level1();
   const s = newState(140);

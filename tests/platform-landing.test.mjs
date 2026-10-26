@@ -1,7 +1,7 @@
 /**
- * Deterministic platform-landing test — runs WW.Physics.step headlessly.
+ * Deterministic platform-landing test, runs WW.Physics.step headlessly.
  * Scenario A: hop over the flour, double-hop at the platform edge, land on platform.
- * Scenario B: fast fall over the platform — the old narrow landing window let
+ * Scenario B: fast fall over the platform, the old narrow landing window let
  *             high-speed falls tunnel through to the floor; the swept crossing
  *             check must catch them.
  * Run: node tests/platform-landing.test.mjs
@@ -54,7 +54,7 @@ function runTripleHop() {
 }
 
 /** Fast-fall: launch straight down onto the platform (no drift), from
- *  apex height — this is the case the old narrow window tunnelled through. */
+ *  apex height, this is the case the old narrow window tunnelled through. */
 function runFastFall() {
   const s = newState(140);
   const dt = 1 / 60;
