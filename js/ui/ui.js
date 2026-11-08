@@ -25,11 +25,9 @@ const IC = {
 };
 
 /* Kitchen Shelf tools, clean display names for the reward chips */
-const TOOL_NAMES = { pantry: 'Pantry', pan: 'Trusty Pan', pin: 'Rolling Pin', whisk: 'Whisk', pot: 'Pot', wick: 'Golden Wick', jar: 'Sprinkle Jar' };
-
 WW.UI = (() => {
   let audio = null, onAction = null, busy = false;
-  const SCREENS = ['title', 'story', 'chars', 'howto', 'records', 'settings', 'signin', 'pause', 'result', 'ending', 'recipes', 'cooking', 'share'];
+  const SCREENS = ['title', 'story', 'chars', 'howto', 'records', 'settings', 'signin', 'pause', 'result', 'ending', 'recipes', 'cooking', 'share', 'fragments'];
   let hudCtx = null; // 'story' | 'endless'
   let lastActionTs = 0;
   /* Click guard: debounces repeat clicks on the SAME control (§8). */
@@ -79,11 +77,11 @@ WW.UI = (() => {
     const t = heroT;
 
     const compact = window.innerWidth < 860;
-    /* drifting patches (x, y as viewport fractions). Compact keeps the
-     * whole flock in the upper strip so the floating collectible chips
-     * below it (title-deco, ~34% and down) never cover them. */
+    /* drifting patches (x, y as viewport fractions). Compact lays the
+     * flock out on an even, gentle arc across the upper strip so it reads
+     * as a tidy group (not a scatter), clear of the chips row below. */
     const anchors = compact
-      ? [[0.10, 0.16], [0.29, 0.22], [0.50, 0.14], [0.71, 0.22], [0.90, 0.16]]
+      ? [[0.12, 0.17], [0.31, 0.21], [0.50, 0.15], [0.69, 0.21], [0.88, 0.17]]
       : [[0.30, 0.17], [0.33, 0.50], [0.50, 0.15], [0.70, 0.31], [0.70, 0.55]];
     const k = compact
       ? Math.max(0.6, Math.min(W * 0.12, (H * 0.15) / 80))
@@ -94,8 +92,8 @@ WW.UI = (() => {
       const ch = chars[i] || chars[0];
       /* each patch wanders on a slow orbit with its own phase, bobbing on
        * a faster rhythm so the flock never looks locked together */
-      const fx = anchors[i][0] + Math.sin(t * 0.11 + i * 2.1) * (compact ? 0.04 : 0.05);
-      const fy = anchors[i][1] + Math.sin(t * 0.55 + i * 1.3) * 0.035;
+      const fx = anchors[i][0] + Math.sin(t * 0.11 + i * 2.1) * (compact ? 0.035 : 0.05);
+      const fy = anchors[i][1] + Math.sin(t * 0.55 + i * 1.3) * (compact ? 0.022 : 0.035);
       /* they face where they drift, unless the cursor gives a reason */
       const driftLook = Math.cos(t * 0.11 + i * 2.1) >= 0 ? 'r' : 'l';
       let look = driftLook;
@@ -314,6 +312,10 @@ WW.UI = (() => {
     }
     if (name) $('screens').classList.remove('hidden'); else $('screens').classList.add('hidden');
     if (name === 'title') renderTitleStats();
+    /* the tab pill is sized from live layout, so it can only be placed once
+     * the page is visible: opening the kitchen renders while it is still
+     * hidden, which left the pill at its default width until a tab was tapped */
+    if (name === 'recipes') placeKitchenInd(true);
   };
   const showNone = () => show(null);
 
@@ -327,10 +329,12 @@ WW.UI = (() => {
     $('hud-score').classList.add('hidden');
     $('hud-dist').classList.add('hidden');
     $('hud-ingredients').classList.add('hidden');
+    $('hud-story-parts').classList.add('hidden');
     if (mode === 'story') {
       $('hud-gems').classList.remove('hidden');
       $('hud-coins').classList.remove('hidden');
       $('hud-ingredients').classList.remove('hidden');
+      $('hud-story-parts').classList.remove('hidden');
     }
     if (mode === 'endless') {
       $('hud-score').classList.remove('hidden');
@@ -340,21 +344,33 @@ WW.UI = (() => {
     }
   };
   /* Continue-after-crash offer: gem cost, owned count, afford state */
-  const showRevive = ({ cost, gems, shield }) => {
+  const showRevive = ({ cost, gems, shield, who }) => {
     const yes = $('revive-yes');
     const ok = gems >= cost;
+    const hopper = who || 'Ghee';
     $('revive-sub').innerHTML = ok
-      ? `Ghee took the tumble. Spend gems to hop right back in${shield ? ', ' + shield + 's of get-out-of-jail free' : ''}.`
-      : `Ghee took the tumble, but you don't have enough gems to revive: ${IC.gem}${fmtN(cost)} needed, ${IC.gem}${fmtN(gems)} banked.`;
+      ? `${hopper} took the tumble. Spend gems to hop right back in${shield ? ', ' + shield + 's of get-out-of-jail free' : ''}.`
+      : `${hopper} took the tumble, but you don't have enough gems to revive: ${IC.gem}${fmtN(cost)} needed, ${IC.gem}${fmtN(gems)} banked.`;
     $('revive-cost').innerHTML = ok ? `${IC.gem}${fmtN(cost)}` : `${IC.gem}${fmtN(cost - gems)} more`;
     $('revive-count').textContent = '';
     yes.classList.toggle('disabled-cta', !ok);
     yes.disabled = !ok;
-    $('revive-no').textContent = ok ? 'No thanks' : 'End the run';
+    $('revive-no').textContent = ok ? 'No Thanks' : 'End The Run';
     $('revive-overlay').classList.remove('hidden');
   };
   const reviveCountdown = (secs) => { const el = $('revive-count'); if (el) el.textContent = secs + 's'; };
   const hideRevive = () => { $('revive-overlay').classList.add('hidden'); };
+
+  /* Story fragment found: the run freezes behind this card until the
+   * player has read it and taps Continue. */
+  const showStoryPart = ({ level, index, total, title, text }) => {
+    $('storypart-kicker').textContent = `${level || 'Story'} \u00b7 Story Page Found`;
+    $('storypart-title').textContent = title || '';
+    $('storypart-text').textContent = text || '';
+    $('storypart-count').textContent = `Part ${index + 1} of ${total}`;
+    $('storypart-overlay').classList.remove('hidden');
+  };
+  const hideStoryPart = () => $('storypart-overlay').classList.add('hidden');
 
   /* Recipe ingredient chips under the level name: 🥚1/2 … dim when done */
   const hud = {
@@ -371,7 +387,30 @@ WW.UI = (() => {
     score(n) { $('hud-score').textContent = String(n); },
     dist(n) { $('hud-dist').textContent = n + ' m'; },
     time(n) { /* optional HUD clock; no dedicated element yet */ },
+    /* story fragments read on this level, as "2/3" */
+    parts(have, total) {
+      const el = $('hud-story-parts-n');
+      if (el) el.textContent = `${have || 0}/${total || 0}`;
+    },
     show(set) { if (set && hudCtx) $('hud').classList.remove('hidden'); else $('hud').classList.add('hidden'); },
+  };
+
+  /* the shop's wallet strip: the coin + gem chips sit right above the
+   * goods, and the one that is short flashes when a purchase is refused,
+   * so the shortfall reads even if the toast has already faded */
+  const renderShopWallet = (coins, gems) => {
+    if ($('shop-coins')) $('shop-coins').textContent = fmtN(coins || 0);
+    if ($('shop-gems')) $('shop-gems').textContent = fmtN(gems || 0);
+  };
+  const flashWallet = (kind) => {
+    const el = kind === 'gems' ? $('shop-gems') : $('shop-coins');
+    const chip = el && el.closest('.hud-chip');
+    if (!chip) return;
+    chip.classList.remove('flash');
+    void chip.offsetWidth;                 // restart the nudge on repeat taps
+    chip.classList.add('flash');
+    clearTimeout(chip.__flashT);
+    chip.__flashT = setTimeout(() => chip.classList.remove('flash'), 640);
   };
 
   /* ---------------- story map ---------------- */
@@ -383,46 +422,88 @@ WW.UI = (() => {
     { coins: 120, gems: 6 },
     { coins: 150, gems: 8 },
   ];
-  const renderStory = (levels, progress, sparks) => {
+  const renderStory = (levels, progress, sparks, parts = {}) => {
     progressIds = progress || [];
     const grid = $('story-grid');
-    const detail = $('story-detail');
     grid.innerHTML = '';
     levels.forEach((L, i) => {
       const locked = i > 0 && !progress.includes(levels[i - 1].id);
       const done = progress.includes(L.id);
-      const b = document.createElement('button');
+      const recipe = WW.recipeForLevel ? WW.recipeForLevel(i) : null;
+      const rew = STORY_REWARDS[i] || STORY_REWARDS[STORY_REWARDS.length - 1];
+      const partsHave = (parts[L.id] || []).length;
+      const partsTotal = (L.story || []).length;
+      /* level number over its dish: the tile hints what cooking is ahead,
+       * with a name + state chip so each card reads like a little plate */
+      const chip = done ? '<span class="st-chip done">Cooked</span>'
+        : locked ? '<span class="st-chip lock">Locked</span>'
+        : '<span class="st-chip">New</span>';
+      /* every card carries its own level: dish, name, its one-line story,
+       * the coins + gems it pays and the Play button itself, so nobody has
+       * to scroll down to a separate panel to start a level */
+      const b = document.createElement('div');
       b.className = 'story-tile' + (done ? ' done' : '') + (locked ? ' locked' : '');
-      b.textContent = String(i + 1);
-      b.setAttribute('aria-label', (locked ? 'Locked: ' : '') + L.name);
-      b.__act = locked ? 'noop' : 'select-story';
+      b.setAttribute('role', 'button');
+      b.setAttribute('aria-label', (locked ? 'Locked: ' : 'Play: ') + L.name);
+      b.innerHTML = `<span class="st-num">${i + 1}</span>` +
+        (locked
+          ? `<span class="st-dish"><svg class="st-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="9.5" rx="3"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg></span>`
+          : `<span class="st-dish">${recipe.emoji}</span>`) +
+        `<span class="st-name">${L.name}</span>` + chip +
+        `<p class="st-note">${L.note}</p>` +
+        `<span class="st-reward">` +
+          `<span class="story-reward-chip">${IC.coin} ${rew.coins}</span>` +
+          `<span class="rdot">·</span>` +
+          `<span class="story-reward-chip">${IC.gem} ${rew.gems} gems</span>` +
+        `</span>` +
+        `<span class="st-parts">${partsHave}/${partsTotal} story parts</span>` +
+        (locked
+          ? '<button class="btn btn-soft st-play" type="button" disabled>Locked</button>'
+          : `<button class="btn btn-primary st-play" type="button">${done ? 'Play Again' : 'Play Level ' + (i + 1)}</button>`);
+      /* the card and its own button are one control: the tap bubbles up
+       * to the card, so a single guarded play action fires */
+      b.__act = locked ? 'noop' : 'play-level';
       b.__arg = i;
       b.addEventListener('click', guard);
       grid.appendChild(b);
     });
-    // preselect the first unlocked-but-not-done level
-    const pick = levels.findIndex((L, i) => !progress.includes(L.id) && (i === 0 || progress.includes(levels[i - 1].id)));
-    selectStory(pick < 0 ? levels.length - 1 : pick);
   };
-  const selectStory = (i) => {
-    const detail = $('story-detail');
-    const L = WW.STORY_LEVELS[i];
-    const done = progressIds.includes(L.id);
-    const rew = STORY_REWARDS[i] || STORY_REWARDS[STORY_REWARDS.length - 1];
-    const recipe = WW.recipeForLevel ? WW.recipeForLevel(i) : null;
-    const tiles = $('story-grid').querySelectorAll('.story-tile');
-    tiles.forEach((t, k) => t.classList.toggle('sel', k === i));
-    const daily = WW.dailySpecial ? WW.dailySpecial() : null;
-    detail.innerHTML = `
-      <div class="sd-name">${L.name}</div>
-      <div class="sd-recipe">${recipe ? `Cook-along: ${recipe.emoji} ${recipe.name}` : ''}${daily && recipe && daily.id === recipe.id ? '<span class="sd-daily">daily ×2</span>' : ''}</div>
-      <div class="sd-note">${L.note}</div>
-      <div class="story-reward-chip sd-reward">${IC.coin} ${done ? rew.coins + ' coins again' : rew.coins + ' coins'} &nbsp;·&nbsp; ${IC.gem} ${rew.gems} gems${recipe ? ` &nbsp;·&nbsp; cooks ${recipe.realName}` : ''}</div>
-      <button class="btn btn-primary btn-play" id="story-play">Play level ${i + 1}</button>`;
-    const playBtn = $('story-play');
-    playBtn.__act = 'play-level';
-    playBtn.__arg = i;
-    playBtn.addEventListener('click', guard);
+
+  /* ---------------- story parts page ----------------
+   * A read-only reread of the collection: each level keeps its fragments in
+   * order, and the ones still waiting out on the counter stay as quiet
+   * placeholders so the page reads like a set being filled in. */
+  const renderFragments = (levels, parts = {}) => {
+    const list = $('frag-list');
+    if (!list) return;
+    const have = levels.reduce((n, L) => n + (parts[L.id] || []).length, 0);
+    const all = levels.reduce((n, L) => n + (L.story || []).length, 0);
+    const sub = $('frag-sub');
+    if (sub) sub.textContent = 'Every part of the story you have found so far.';
+    /* the running total lives on this page now: here is where the collection
+     * is actually counted, so the map stays focused on the levels themselves */
+    const tot = $('frag-total');
+    if (tot) tot.innerHTML = all
+      ? `<span class="story-parts-chip">Story parts found: <b>${have}</b> of ${all}</span>`
+      : '';
+    list.innerHTML = levels.map((L) => {
+      const found = parts[L.id] || [];
+      const total = (L.story || []).length;
+      const rows = (L.story || []).map((p, i) => {
+        const got = found.includes(i);
+        const title = got ? p.title : 'Not found yet';
+        const text = got ? p.text : `Part ${i + 1} is still waiting out on the counter.`;
+        return `<article class="frag-part${got ? '' : ' locked'}">` +
+          `<span class="frag-num">${i + 1}</span>` +
+          `<div class="frag-body"><b class="frag-title">${title}</b><p class="frag-text">${text}</p></div>` +
+          `</article>`;
+      }).join('');
+      return `<section class="frag-level${found.length ? '' : ' empty'}">` +
+        `<header class="frag-level-head"><b>${L.name}</b>` +
+        `<span class="frag-count">${found.length}/${total}</span></header>` +
+        `<div class="frag-parts">${rows}</div>` +
+        `</section>`;
+    }).join('');
   };
 
   /* ---------------- characters + shop ----------------
@@ -458,7 +539,9 @@ WW.UI = (() => {
     } else {
       price = `${IC.coin}${fmtN(ch.price)}`;
     }
-    return `<button class="btn${tone} char-buy" data-id="${ch.id}"${pay.ok ? '' : ' disabled'}><span class="buy-label">Buy</span><span class="char-price">${price}</span></button>`;
+    /* unaffordable cards stay tappable on purpose: tapping one is how the
+     * player finds out exactly how far off they are (see 'char-buy') */
+    return `<button class="btn${tone} char-buy" data-id="${ch.id}"${pay.ok ? '' : ' data-short="1"'}><span class="buy-label">Buy</span><span class="char-price">${price}</span></button>`;
   };
   /* selection is just the visual highlight + button tone: re-render so
    * the tapped card is the only one with the primary action */
@@ -471,6 +554,7 @@ WW.UI = (() => {
     if (selectedId) charTemp = selectedId;
     $('chars-note').textContent = note;
     renderTitleStats();
+    renderShopWallet(shop.balance, shop.gems);
     const grid = $('char-grid');
     grid.innerHTML = chars.map((ch) => {
       const badge = shop.owned.includes(ch.id)
@@ -642,8 +726,15 @@ WW.UI = (() => {
   };
 
   /* ---------------- Cook & Learn ---------------- */
+  /* The cook-along is part of the kitchen page now, not a modal: dish,
+   * pantry chips and the real method sit on the counter, the pan only
+   * appears once the player presses Start. */
   const showCooking = (recipe, strip) => {
-    $('cook-overlay').classList.remove('hidden');
+    const station = $('cook-station');
+    if (!station) return;
+    $('recipes-daily').classList.add('hidden');
+    $('recipe-list').classList.add('hidden');
+    station.classList.remove('hidden');
     $('cook-dish').innerHTML =
       `<span class="cook-dish-emoji">${recipe.emoji}</span>` +
       `<span class="cook-dish-name">${recipe.name}</span>` +
@@ -652,70 +743,174 @@ WW.UI = (() => {
       k: n.k, n: n.n, emoji: (WW.INGREDIENTS[n.k] || {}).emoji || '', name: (WW.INGREDIENTS[n.k] || {}).name || n.k, have: n.n,
     }))).map((it) =>
       `<span class="hud-chip hud-ing${it.have >= it.n ? ' done' : ''}">${it.emoji}<b>${Math.min(it.have, it.n)}/${it.n}</b></span>`).join('');
-    show('cooking');
+    $('cook-ings').classList.remove('hidden');
+    $('cook-steps-list').innerHTML = recipe.real.map(s => `<li>${s}</li>`).join('');
+    $('cook-tip').textContent = 'Tip: ' + recipe.fact;
+    $('cook-steps').classList.remove('hidden');       // the method is read first
+    $('cook-canvas').classList.add('hidden');
+    $('cook-actions').classList.remove('hidden');
+    $('cook-start').classList.remove('hidden');
+    $('cook-abort').classList.remove('hidden');
+    $('cook-done').classList.add('hidden');
+    $('cook-help').classList.remove('hidden');
+  };
+  const cookStartUi = () => {
+    $('cook-steps').classList.add('hidden');
+    $('cook-start').classList.add('hidden');
+    $('cook-canvas').classList.remove('hidden');
+  };
+  /* served on the same counter: the plate, its stars and pay, then the two
+   * ways on. No modal, so the kitchen never leaves the page. */
+  const showCooked = ({ recipe, stars, coins, gems, tool, daily, missing }) => {
+    const station = $('cook-station');
+    if (!station) return;
+    $('recipes-daily').classList.add('hidden');
+    $('recipe-list').classList.add('hidden');
+    station.classList.remove('hidden');
+    $('cook-canvas').classList.add('hidden');
+    $('cook-ings').classList.add('hidden');
+    $('cook-actions').classList.add('hidden');
+    $('cook-help').classList.add('hidden');
+    $('cook-done').classList.remove('hidden');
+    /* the counter's own head already names the dish, so the result line does
+     * not repeat it, matching the other "Dish Served!" result panel */
+    $('cook-done-title').textContent = 'Dish Served!';
+    $('cook-done-stars').textContent = `${'\u2605'.repeat(stars)}${'\u2606'.repeat(3 - stars)}`;
+    $('cook-done-pay').innerHTML = `${IC.coin} +${coins}${gems ? ` <span class="rdot">\u00b7</span> ${IC.gem} +${gems}` : ''}`;
+    const bits = [];
+    if (tool) bits.push(`${tool.name} unlocked, the next recipe needs it!`);
+    if (daily) bits.push('Special of the day: cooked double!');
+    if (missing) bits.push(`${missing} ingredient${missing > 1 ? 's' : ''} ran out mid-cook.`);
+    $('cook-done-note').textContent = bits.join(' ');
   };
 
-  const recipeCard = (recipe, entry, locked, toolNeeded, canCook) => {
-    /* cooked/locked status notes dropped: the golden card background and the
-     * lock line say enough; no prose under the title */
-    const cooked = !!(entry && entry.cooked);
-    const ink = recipe.needs.map(n =>
-      `<span class="rs-ing">${(WW.INGREDIENTS[n.k] || {}).emoji || ''} ×${n.n}</span>`).join('');
-    const steps = recipe.real.map((s, i) => `<li>${s}</li>`).join('');
-    const head = locked
-      ? `<div class="rc-lock">Needs ${IC.kitchen[toolNeeded.id] || ''} ${toolNeeded.name} from the level before.</div>`
-      : '';
-    return `<article class="recipe-card${locked ? ' locked' : ''}${cooked ? ' cooked' : ''}">` +
-      `<div class="rc-title"><span class="rc-emoji">${recipe.emoji}</span><b>${recipe.name}</b></div>` +
-      head +
-      `<div class="rc-ing">${ink}</div>` +
-      `<ol class="rc-steps">${steps}</ol>` +
-      `<div class="rc-fact">Tip: ${recipe.fact}</div>` +
-      /* reward chips all on one line: the amount, the gem, and the tool
-       * it unlocks, without the fluff */
-      (locked ? '' : `<div class="rc-reward rc-pays"><span class="rp-label">Cook pays:</span>` +
-        `<span class="rp-chip">${IC.coin}75</span>` +
-        `<span class="rp-chip">${IC.gem}1</span>` +
-        (recipe.tool ? `<span class="rp-chip rp-tool">${IC.kitchen[recipe.tool.id] || ''}${TOOL_NAMES[recipe.tool.id] || recipe.tool.name}</span>` : '') +
-        `</div>` +
-        `<button class="btn btn-primary rc-cook" data-id="${recipe.id}">${canCook ? 'Cook it now' : 'Cook it (pantry short)'}</button>`) +
-      `</article>`;
+  /* ---------------- Whimsical Kitchen (dedicated page) ----------------
+   * Not a modal: a base page the menu opens into, with two tabs.
+   *   Recipes     : dish list, tap a dish for its how-to + Cook It
+   *   Ingredients : everything banked, gathered in runs or bought in the
+   *                 Shop (a shortcut for Today's Special racers)
+   * Tab state, the sliding butter pill and list-vs-detail state live
+   * here; the game only re-renders with fresh save data. */
+  let kitchenTab = 'recipes';
+  function placeKitchenInd(snap) {
+    const ind = document.querySelector('.kitchen-ind');
+    const sel = document.querySelector('.kitchen-tab.sel');
+    if (!ind || !sel || !sel.offsetParent) return;
+    if (snap) ind.classList.add('snap-only');
+    ind.style.width = sel.offsetWidth + 'px';
+    ind.style.transform = `translateX(${sel.offsetLeft - ind.offsetLeft}px)`;
+    if (snap) requestAnimationFrame(() => ind.classList.remove('snap-only'));
+  }
+  const setKitchenTab = (tab, snap) => {
+    kitchenTab = tab;
+    $('ktab-recipes')?.classList.toggle('sel', tab === 'recipes');
+    $('ktab-ing')?.classList.toggle('sel', tab === 'ing');
+    $('ktab-recipes')?.setAttribute('aria-selected', String(tab === 'recipes'));
+    $('ktab-ing')?.setAttribute('aria-selected', String(tab === 'ing'));
+    $('kitchen-view-recipes')?.classList.toggle('hidden', tab !== 'recipes');
+    $('kitchen-view-ing')?.classList.toggle('hidden', tab !== 'ing');
+    placeKitchenInd(snap);
   };
 
-  /* the Kitchen: pantry strip above the recipe cards; each card IS the
-   * how-to (ingredients, real steps, tip) with its own Cook button */
-  const renderRecipes = (data) => {
-    data.recipes = data.recipes || {};
-    data.tools = data.tools || [];
-    data.pantry = data.pantry || {};
-    const pantryBox = $('kitchen-pantry');
-    if (pantryBox) {
-      /* the strip ALWAYS shows: one chip per ingredient kind the recipes
-       * use, owned kinds first. Zero-count chips stay visible (dimmed) so
-       * players always know what they have and what is missing */
-      const kinds = [...new Set(WW.RECIPES.flatMap(r => r.needs).map(n => n.k))]
-        .sort((a, b) => (data.pantry[b] || 0) - (data.pantry[a] || 0));
-      pantryBox.classList.remove('hidden');
-      pantryBox.innerHTML =
-        `<span class="kp-label">Ingredients</span>` +
-        kinds.map(k => { const have = data.pantry[k] || 0;
-          return `<span class="kp-chip${have ? '' : ' zero'}" title="${(WW.INGREDIENTS[k] || {}).name || k}">${(WW.INGREDIENTS[k] || {}).emoji || ''}<b>${have}</b></span>`; }).join('');
+  const rrStatus = (recipe, data, locked) => {
+    if (locked) return '<span class="rr-chip lock">Locked</span>';
+    const entry = data.recipes[recipe.id];
+    if (entry && entry.cooked) {
+      const stars = Math.max(1, Math.min(3, entry.stars || 1));
+      return `<span class="rr-chip stars">${'\u2605'.repeat(stars)}${'\u2606'.repeat(3 - stars)}</span>`;
     }
-    $('recipes-grid').innerHTML = WW.RECIPES.map((recipe, i) => {
-      const toolNeeded = WW.toolNeeded(recipe);
-      const locked = !!toolNeeded && !data.tools.includes(toolNeeded.id);
-      const canCook = !locked && recipe.needs.every(n => (data.pantry[n.k] || 0) >= n.n);
-      return recipeCard(recipe, data.recipes[recipe.id], locked, toolNeeded || {}, canCook);
-    }).join('');
-    for (const b of document.querySelectorAll('.rc-cook')) {
-      b.addEventListener('click', () => {
-        WW.Audio.play('tick');
-        onAction && onAction({ action: 'kitchen-cook', arg: b.dataset.id });
-      });
-    }
+    return '<span class="rr-chip new">New</span>';
+  };
+
+  const renderRecipeList = (data) => {
     const daily = WW.dailySpecial();
     $('recipes-daily').innerHTML =
-      `<span class="daily-chip" title="Today's dish cooks for double">Today's special: ${daily.emoji} ${daily.name}${data.dailyCooked === new Date().toISOString().slice(0, 10) ? ' (already doubled today)' : ', pays double today!'}</span>`;
+      `<span class="daily-chip" title="This dish pays double coins today">Today's Special: ${daily.emoji} ${daily.name}</span>`;
+    $('recipes-daily').classList.remove('hidden');
+    $('cook-station').classList.add('hidden');
+    $('cook-done').classList.add('hidden');
+    $('cook-ings').classList.remove('hidden');
+    $('cook-actions').classList.remove('hidden');
+    $('recipe-list').classList.remove('hidden');
+    /* the dish shelf mirrors the story map: one card per recipe with the
+     * dish, a one-line taste of it, what cooking pays and its own action,
+     * so a dish is readable and startable without a trip to the detail */
+    $('recipe-list').innerHTML = WW.RECIPES.map((recipe) => {
+      const toolNeeded = WW.toolNeeded(recipe);
+      const locked = !!toolNeeded && !data.tools.includes(toolNeeded.id);
+      const entry = data.recipes[recipe.id];
+      const cooked = !!(entry && entry.cooked);
+      const dailyMark = daily.id === recipe.id ? '<span class="rr-chip daily">Pays Double</span>' : '';
+      const cta = locked
+        ? '<button class="btn btn-soft rc-cta" type="button" disabled>Locked</button>'
+        : `<button class="btn btn-primary rc-cta" type="button" data-cook="${recipe.id}">${cooked ? 'Cook Again' : 'Cook It'}</button>`;
+      return `<div class="recipe-card${locked ? ' locked' : ''}${cooked ? ' done' : ''}" data-id="${recipe.id}">` +
+        `<span class="rc-emoji">${recipe.emoji}</span>` +
+        `<b class="rc-name">${recipe.name}</b>` +
+        `<span class="rc-status">${rrStatus(recipe, data, locked)}${dailyMark}</span>` +
+        `<p class="rc-tagline">${recipe.tagline}</p>` +
+        `<span class="rc-rewards">` +
+          `<span class="story-reward-chip">${IC.coin}75</span>` +
+          `<span class="rdot">·</span>` +
+          `<span class="story-reward-chip">${IC.gem}1</span>` +
+        `</span>` + cta +
+        `</div>`;
+    }).join('');
+    /* a card is the door to the counter: tapping anywhere on it sets that
+     * dish out with its method and the Start button, no in-between page */
+    for (const card of $('recipe-list').querySelectorAll('.recipe-card')) {
+      card.addEventListener('click', () => {
+        WW.Audio.play('tick');
+        onAction && onAction({ action: 'kitchen-cook', arg: card.dataset.id });
+      });
+    }
+  };
+
+  /* Ingredients tab: one row per ingredient kind, drawn with the game's
+   * own counter art (never stock emojis), with what you have banked */
+  const renderIngredients = (data) => {
+    const kinds = [...new Set(WW.RECIPES.flatMap(r => r.needs).map(n => n.k))];
+    /* the most of one ingredient any dish asks for: below that the pantry
+     * cannot cover at least one dish, so the row offers a restock */
+    const needOf = (k) => Math.max(0, ...WW.RECIPES.map(r => (r.needs.find(n => n.k === k) || {}).n || 0));
+    $('ingredients-list').innerHTML = kinds.map((k) => {
+      const def = WW.INGREDIENTS[k] || {};
+      const have = data.pantry[k] || 0;
+      const low = have < needOf(k);
+      const item = WW.kitchenItem('ing-' + k);
+      const price = item ? item.coins : 60;
+      return `<div class="ing-row${have ? '' : ' empty'}${low ? ' low' : ''}" data-k="${k}">` +
+        `<canvas class="ing-art" width="44" height="44" aria-hidden="true"></canvas>` +
+        `<b>${def.name || k}</b>` +
+        (have
+          ? `<span class="ing-count">Have <b>${have}</b></span>`
+          : `<span class="ing-count none">none yet, run a level or buy it</span>`) +
+        (low
+          ? `<button class="ing-restock" type="button" data-k="${k}" aria-label="Restock ${def.name || k} in the shop">` +
+            `${IC.coin}<span>Restock</span><b>${price}</b></button>`
+          : '') +
+        `</div>`;
+    }).join('');
+    for (const cv of $('ingredients-list').querySelectorAll('.ing-art')) {
+      const rowEl = cv.closest('.ing-row');
+      if (!rowEl) continue;
+      cv.getContext('2d').drawImage(WW.ingTex(rowEl.dataset.k).canvas, 0, 0, 44, 44);
+    }
+    /* the hint leads to the same Kitchen Shelf the Shop button opens, where
+     * the one-tap buy already lives */
+    for (const b of $('ingredients-list').querySelectorAll('.ing-restock')) {
+      b.addEventListener('click', () => {
+        WW.Audio.play('tick');
+        onAction && onAction({ action: 'open-kitchen-shop' });
+      });
+    }
+  };
+
+  /* entry point used by the game: fresh save data in, list first */
+  const renderRecipes = (data) => {
+    renderRecipeList(data);
+    renderIngredients(data);
+    setKitchenTab(kitchenTab, true);
   };
 
   /* Ghee's Kitchen Shelf: buy with banked coins or gems */
@@ -724,6 +919,7 @@ WW.UI = (() => {
   const renderShelf = (data) => {
     const grid = $('shelf-grid');
     if (!grid) return;
+    renderShopWallet(data.wallet.coins, data.wallet.gems);
     data.kitchen = data.kitchen || [];
     if (shelfTemp === null) {
       const first = WW.KITCHEN_ITEMS.find(i => !data.kitchen.includes(i.id) &&
@@ -731,24 +927,30 @@ WW.UI = (() => {
       shelfTemp = (first || {}).id || null;
     }
     grid.innerHTML = WW.KITCHEN_ITEMS.map((item) => {
-      const owned = data.kitchen.includes(item.id);
+      /* ing-* rows never own out: they restock the pantry, buy any number */
+      const ingK = item.ing || null;
+      const owned = !ingK && data.kitchen.includes(item.id);
       const afford = !(item.gems ? data.wallet.gems < item.gems : data.wallet.coins < (item.coins || 0));
         /* price lives in the buy button only; the badge + wallet line are gone.
          * primary for whatever is selected, affordable or not */
       const tone = shelfTemp === item.id ? ' btn-primary' : ' btn-soft';
       return `<div class="shelf-item${owned ? ' owned' : ''}${shelfTemp === item.id ? ' sel' : ''}" data-id="${item.id}">` +
-        `<span class="shelf-icon-slot" data-id="${item.id}">${IC.kitchen[item.id] || ''}</span>` +
-        `<b>${item.name}</b><small>${item.blurb}</small>` +
+        `<span class="shelf-icon-slot" data-id="${item.id}">${ingK ? ingArt(ingK, 'ing-art', 40) : (IC.kitchen[item.id] || '')}</span>` +
+        `<b>${item.name}</b>` +
+        (ingK ? `<small class="shelf-pantry">In pantry: ${data.pantry[ingK] || 0}</small>` : '') +
+        `<small>${item.blurb}</small>` +
         (owned ? '<span class="cc-badge owned">In your kitchen</span>' :
           `<button class="btn${tone} shelf-buy" data-id="${item.id}" ${
             afford ? '' : 'data-short="1"'
           }><span class="buy-label">Buy</span><span class="char-price">${item.gems ? IC.gem + fmtN(item.gems) : IC.coin + fmtN(item.coins)}</span></button>`) +
         `</div>`;
     }).join('');
+    paintIngArt(grid);
     for (const b of grid.querySelectorAll('.shelf-buy')) {
       b.addEventListener('click', () => {
         WW.Audio.play('tick');
-        if (b.dataset.short) { showToast('Not banked enough yet!'); return; }
+        /* unaffordable taps go through too: the game answers with the
+         * exact coin or gem shortfall instead of a dead button */
         onAction && onAction({ action: 'shelf-buy', arg: b.dataset.id });
       });
     }
@@ -780,7 +982,7 @@ WW.UI = (() => {
     { id: 'facebook', label: 'Facebook' },
     { id: 'instagram', label: 'Instagram' },
     { id: 'x', label: 'X' },
-    { id: 'copy', label: 'Copy text' },
+    { id: 'copy', label: 'Copy Text' },
   ];
   const renderShareMenu = () => {
     const grid = $('share-grid');
@@ -813,15 +1015,29 @@ WW.UI = (() => {
   };
   const hideShare = () => { const b = $('result-share'); if (b) b.classList.add('hidden'); };
 
-  /* Cook & Learn: “Ghee gathered”, one chip per ingredient brought home */
-  const showCollected = (list) => {
+  /* Cook & Learn: ingredients brought home, drawn with the game's own
+   * counter art (the same sprite the runner grabbed, never a stock emoji) */
+  const ingArt = (k, cls, w = 30) => `<canvas class="${cls}" width="${w}" height="${w}" data-k="${k}" aria-hidden="true"></canvas>`;
+  const paintIngArt = (root) => {
+    for (const cv of root.querySelectorAll('canvas[data-k]')) {
+      const tex = WW.ingTex && WW.ingTex(cv.dataset.k);
+      if (tex) cv.getContext('2d').drawImage(tex.canvas, 0, 0, cv.width, cv.height);
+    }
+  };  /* the butter banner every result panel uses for gathered loot: the same
+   * styling on wins and losses, chips of the exact sprites the run grabbed */
+  const pantryBanner = (list) => {
+    const chips = (list || [])
+      .map(it => `<span class="collected-chip" title="${it.name}">${ingArt(it.k, 'collected-art')}<b>×${it.n}</b></span>`).join('');
+    if (!chips) return '';
+    return `<div class="tool-line pantry-nudge">🥣 Banked in the pantry, cook it in the Whimsical Kitchen!` +
+      `<div class="pantry-chips">${chips}</div></div>`;
+  };
+  const showCollected = (list, who) => {
     const box = $('result-collected');
-    const items = list || [];
-    if (!items.length) { box.innerHTML = ''; box.classList.add('hidden'); return; }
-    box.innerHTML =
-      `<span class="collected-label">Ghee gathered</span>` +
-      items.map(it => `<span class="collected-chip" title="${it.name}">${it.emoji}<b>×${it.n}</b></span>`).join('');
-    box.classList.remove('hidden');
+    const html = pantryBanner(list);
+    box.classList.toggle('hidden', !html);
+    box.innerHTML = '';
+    if (html) { box.innerHTML = html; paintIngArt(box); }
   };
 
   const showResult = (kind, data) => {
@@ -831,29 +1047,29 @@ WW.UI = (() => {
     $('result-settings')?.classList.remove('hidden');
     if (kind === 'endless-over') $('result-primary').setAttribute('aria-label', 'Run again');
     if (kind === 'endless-over') {
-      $('result-title').textContent = data.newBest ? 'New record!' : 'Run over';
+      $('result-title').textContent = data.newBest ? 'New Record!' : 'Run Over';
       /* one chip per stat: when a record was beaten the chip is labeled
        * with its record name ("Best score"), otherwise the plain stat */
       $('result-stats').innerHTML =
         stat(data.score, data.newBest ? 'Best score' : 'Score', data.newBest) +
         stat(data.dist + ' m', data.newBest ? 'Best distance' : 'Distance') +
         stat(data.timeStr, 'Time') +
-        stat(`${IC.coin} +${data.coins}`) +
-        (data.gems ? stat(`${IC.gem} +${data.gems}`) : '');
-      showCollected([]);
+        stat(`${IC.coin} +${data.coins}`, 'Coins') +
+        (data.gems ? stat(`${IC.gem} +${data.gems}`, 'Gems') : '');
+      showCollected(data.collected);
       $('result-primary').classList.add('hidden');
       showShare(`I scored ${data.score} in Whimsy Wick (distance ${data.dist} m)!`);
     } else if (kind === 'story-fail') {
-      $('result-title').textContent = 'Ghee tumbled!';
-      showShare('Ghee just tumbled in Whimsy Wick! Come hop the counter yourself.');
+      $('result-title').textContent = `${data.who || 'Ghee'} tumbled!`;
+      showShare(`${data.who || 'Ghee'} just tumbled in Whimsy Wick! Come hop the counter yourself.`);
       $('result-stats').innerHTML =
-        stat(`${IC.coin} +${data.coins || 0}`) +
-        (data.gems ? stat(`${IC.gem} +${data.gems}`) : '');
+        stat(`${IC.coin} +${data.coins || 0}`, 'Coins') +
+        (data.gems ? stat(`${IC.gem} +${data.gems}`, 'Gems') : '');
       showCollected(data.collected);
       $('result-primary').classList.add('hidden');
     } else if (kind === 'kitchen-done') {
       /* a dish cooked straight from Ghee's Kitchen (no level rewards here) */
-      $('result-title').textContent = 'Dish served!';
+      $('result-title').textContent = 'Dish Served!';
       const dishLine = (data.dish)
         ? `<div class="dish-line"><span class="dish-emoji">${data.dish.emoji}</span>` +
           `<span class="dish-name">Cooked ${data.dish.name}</span>` +
@@ -877,7 +1093,7 @@ WW.UI = (() => {
         : `Dish served in Whimsy Wick's kitchen!`);
     } else {
       data.coins = data.coins || 0; data.gems = data.gems || 0;
-      $('result-title').textContent = data.last ? 'All wicks lit!' : 'Wick lit!';
+      $('result-title').textContent = data.last ? 'All Wicks Lit!' : 'Wick Lit!';
       const rewardCoins = data.rewardCoins || 0, rewardGems = data.rewardGems || 0;
       /* Cook & Learn: the dish line + tool unlock + daily banner */
       const dishLine = (data.dish)
@@ -891,18 +1107,14 @@ WW.UI = (() => {
       const dailyLine = data.daily
         ? `<div class="daily-line">Special of the day: cooked double!</div>` : '';
       /* runs never auto-cook: the gathered bits went to the pantry, and the
-       * banner (in the game's butter palette) carries the chips itself */
-      const gathers = (data.collected || [])
-        .map(it => `<span class="collected-chip" title="${it.name}">${it.emoji}<b>×${it.n}</b></span>`).join('');
-      const pantryLine = data.pantrip
-        ? `<div class="tool-line pantry-nudge">🥣 Banked in the pantry, cook it in the Whimsical Kitchen!` +
-          (gathers ? `<div class="pantry-chips">${gathers}</div>` : '') +
-          `</div>` : '';
+       * butter banner carries the chips itself, built by the shared helper */
+      const pantryLine = data.pantrip ? pantryBanner(data.collected) : '';
       $('result-dish').innerHTML = dishLine + pantryLine + toolLine + dailyLine;
+      paintIngArt($('result-dish'));
       $('result-dish').classList.toggle('hidden', !(dishLine || pantryLine || toolLine || dailyLine));
       $('result-stats').innerHTML =
-        stat(`${IC.coin} ${(data.coins || 0) + rewardCoins}`) +
-        stat(`${IC.gem} ${rewardGems + (data.gemsPicked || 0)}`);
+        stat(`${IC.coin} ${(data.coins || 0) + rewardCoins}`, 'Coins') +
+        stat(`${IC.gem} ${rewardGems + (data.gemsPicked || 0)}`, 'Gems');
       showCollected([]);
       if (data.last) {
         $('result-primary').classList.add('hidden');
@@ -982,6 +1194,8 @@ WW.UI = (() => {
     paintHowtoHazards();
 
     btn('btn-story', 'open-story');
+    btn('btn-fragments', 'open-fragments');
+    btn('frag-back', 'close-fragments');
     btn('btn-endless', 'start-endless');      btn('btn-chars', 'open-chars');
       btn('btn-recipes', 'open-recipes');
       btn('btn-howto', 'open-howto-title');
@@ -1014,7 +1228,11 @@ WW.UI = (() => {
     });
     /* Kitchen Shelf tab: same modal, second grid (snap=false → the pill slides) */
     setShopTab(false, true);
-    window.addEventListener('resize', () => { placeShopInd(true); fitShopBody(); paintTitleScene(); });
+    window.addEventListener('resize', () => { placeShopInd(true); fitShopBody(); placeKitchenInd(true); paintTitleScene(); });
+    /* Whimsical Kitchen page tabs + its Shop shortcut */
+    $('ktab-recipes')?.addEventListener('click', () => { WW.Audio.play('tick'); setKitchenTab('recipes'); });
+    $('ktab-ing')?.addEventListener('click', () => { WW.Audio.play('tick'); setKitchenTab('ing'); });
+    $('kitchen-shop')?.addEventListener('click', () => { WW.Audio.play('tick'); onAction({ action: 'open-kitchen-shop' }); });
     $('tab-spirits').addEventListener('click', () => { WW.Audio.play('tick'); setShopTab(false); });
     $('tab-shelf').addEventListener('click', () => {
       WW.Audio.play('tick'); setShopTab(true);
@@ -1023,8 +1241,17 @@ WW.UI = (() => {
     btn('pause-resume', 'resume');
     btn('pause-restart', 'restart');
     btn('cook-abort', 'cook-abort');
+    btn('cook-start', 'kitchen-cook-start');
+    btn('cook-next', 'kitchen-cook-next');
+    btn('cook-back', 'kitchen-back-dishes');
+    /* the little ? on the counter: re-read the method any time */
+    $('cook-help')?.addEventListener('click', () => {
+      WW.Audio.play('tick');
+      $('cook-steps').classList.toggle('hidden');
+    });
     btn('revive-yes', 'revive-accept');
     btn('revive-no', 'revive-decline');
+    btn('storypart-go', 'story-part-continue');
     btn('pause-howto', 'open-howto-pause');
     btn('pause-settings', 'open-settings-pause');
     btn('pause-menu', 'back-title');
@@ -1059,7 +1286,9 @@ WW.UI = (() => {
       };
       b.addEventListener('click', close);
       const screen = b.closest('.screen');
-      if (screen) screen.addEventListener('click', (e) => { if (e.target === screen) close(); });
+      /* backdrop-click-to-close is modal behaviour; full pages like the
+       * kitchen and the story map must not exit on taps in empty space */
+      if (screen && !screen.matches('.kitchen-page, .story-page')) screen.addEventListener('click', (e) => { if (e.target === screen) close(); });
     }
 
     // settings inputs
@@ -1085,11 +1314,15 @@ WW.UI = (() => {
     init, show, showNone, setHUD, hud, setShopTab, snapShopInd: () => placeShopInd(true),
     setStatsSource(fn) { statsSource = fn; renderTitleStats(); },
     renderRecords,
-    renderStory, selectStory, renderChars, renderShelf, renderRecipes, showCooking,
+    renderStory, renderFragments, renderChars, renderShelf, renderRecipes, showCooking, cookStartUi, showCooked, setKitchenTab,
+    /* the pantry rows alone, for a purchase made while the shop is open */
+    renderPantry: (data) => renderIngredients(data),
+    flashWallet,
     renderSettings, renderProfile,
     setTutorial, setTutorialText, hideTutorial,
     showGestureHint, showToast, showResult, lockCharsTemp: () => charTemp,
     showRevive, reviveCountdown, hideRevive,
+    showStoryPart, hideStoryPart,
     set charsTemp(v) { charTemp = v; },
     get charsTemp() { return charTemp; },
     reshowRenderer() { /* screens hidden; canvas visible */ },

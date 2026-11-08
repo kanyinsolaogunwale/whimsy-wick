@@ -201,47 +201,118 @@ body.rm .title-deco canvas, body.rm .td-star { animation: none !important; }
   -webkit-text-stroke: 2px rgba(122,87,55,.6);
   text-shadow: 0 3px 0 rgba(122,87,55,.55), 0 10px 26px rgba(46,26,60,.5); }
 @media (max-width: 860px) {
-  .title-deco canvas { width: 30px; height: 30px; }
-  /* the compact flock fills the upper sky (worst-case bottom edge ~33%H);
-   * park the chips on the clear strip just below it, above the menu card,
-   * so they never cover the spirits */
-  .td-coin { left: 6%; top: 35.5%; }
-  .td-egg { left: 16%; top: 35.5%; }
-  .td-gem { right: 6%; top: 35.5%; }
-  .td-tomato { right: 16%; top: 35.5%; }
+  /* compact screens: the floating ingredient chips read as clutter in
+   * mid-air under the flock, so only the twinkling stars ride along */
+  .title-deco canvas { display: none; }
   .td-star { width: 5px; height: 5px; }
 }
 
-/* ---------------- story tile grid ---------------- */
-.story-panel { text-align: center; }  /* spacing inherited from .panel */
-.story-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; padding: 2px 0 4px; }
-@media (max-width: 480px) { .story-grid { gap: 7px; } }
+/* ---------------- story tile grid: decorative level cards ----------------
+ * The full page has room now: landscape cards (dish medallion, level
+ * name, state chip) flowing on an auto-fill grid that gives phones a
+ * two-per-row shelf like the Kitchen Shelf. */
+.story-sub { max-width: 480px; margin: 0 auto; }
+/* both map pages share one wide body so their card shelves line up */
+.story-page .page-body, .kitchen-page .page-body { width: min(96vw, 760px); }
+.story-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(212px, 1fr)); gap: 14px; width: 100%; padding: 6px 0 10px; }
+@media (max-width: 480px) { .story-grid { grid-template-columns: repeat(auto-fill, minmax(146px, 1fr)); gap: 10px; } }
 .story-tile {
-  aspect-ratio: 1; border-radius: 18px; border: 0; cursor: pointer;
-  font: inherit; font-weight: 800; font-size: 20px; color: var(--ink);
-  background: var(--ivory); box-shadow: 0 4px 0 rgba(74,53,36,.16);
-  position: relative; display: flex; align-items: center; justify-content: center;
-  transition: transform .08s ease;
+  border-radius: 22px; cursor: pointer;
+  border: 2px solid rgba(74,53,36,.18);
+  font: inherit; font-weight: 800; color: var(--ink);
+  background: linear-gradient(175deg, #fffcf3, #fdf3df);
+  box-shadow: 0 4px 0 rgba(74,53,36,.16);
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  gap: 8px; padding: 22px 12px 16px; min-height: 150px; text-align: center;
+  overflow: hidden;
+  transition: transform .08s ease, box-shadow .08s ease;
 }
 .story-tile:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(74,53,36,.16); }
+/* a soft butter glow peeking from the top-right: storybook warmth on
+ * every card, like the sun catching the level */
+.story-tile::before {
+  content: ''; position: absolute; top: -22px; right: -22px; width: 72px; height: 72px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,214,107,.5), rgba(255,214,107,0) 72%); pointer-events: none;
+}
+.story-tile .st-num {
+  /* little level-number badge parked at the tile apex, like the shop badges */
+  position: absolute; top: 9px; left: 9px; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--butter); border: 1.5px solid var(--butter-deep);
+  color: #8a5c14; font-size: 13px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 1px 0 var(--butter-deep);
+}
+.story-tile .st-dish {
+  width: 62px; height: 62px; border-radius: 50%; font-size: 31px; line-height: 1;
+  background: rgba(255,214,107,.32); border: 2px solid rgba(233,166,58,.4);
+  display: flex; align-items: center; justify-content: center;
+}
+.story-tile .st-lock { width: 28px; height: 28px; color: #a8937e; }
+.story-tile .st-name { font-size: 13.5px; line-height: 1.2; padding: 0 3px; }
+/* the card's own story + rewards + Play: a whole level in one tile, so
+ * the button is always under the thumb and never below a scroll */
+.story-tile .st-note {
+  margin: 0; padding: 0 4px; font-size: 11.5px; font-weight: 600; line-height: 1.35; color: var(--ink-soft);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.story-tile .st-reward { display: flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 800; white-space: nowrap; }
+.story-tile .st-reward .hud-ic,
+.story-tile .st-reward .ic-coin, .story-tile .st-reward .ic-gem { width: 15px; height: 15px; vertical-align: -2px; }
+.story-tile .st-play { width: 100%; margin-top: auto; min-height: 40px; padding: 8px 10px; font-size: 13px; }
+.story-tile .st-chip {
+  padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; white-space: nowrap;
+  background: rgba(168,220,195,.35); border: 1.5px solid var(--mint-deep); color: #38714f;
+}
+.story-tile .st-chip.done { background: rgba(255,214,107,.45); border-color: var(--butter-deep); color: #8a5c14; }
+.story-tile .st-chip.lock { background: rgba(199,184,232,.3); border-color: var(--lav-deep); color: var(--lav-deep); }
+/* finished levels read as warm butter cards with a mint "done" ring */
+.story-tile.done { background: linear-gradient(165deg, #fff4d6, #ffe490); border-color: rgba(233,166,58,.55); }
+.story-tile.done::before { background: radial-gradient(circle, rgba(255,250,240,.75), rgba(255,250,240,0) 72%); }
 .story-tile.done::after {
-  content: ''; position: absolute; right: 5px; top: 5px; width: 18px; height: 18px;
+  content: ''; position: absolute; right: 6px; top: 6px; width: 20px; height: 20px;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='11' fill='%23fffaf0'/%3E%3Cpath d='M7 12.5l3.2 3.2L17 9' fill='none' stroke='%23a3661c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;
 }
-.story-tile.locked { opacity: .55; cursor: not-allowed; }
-.story-tile.done { background: var(--butter); }
-.story-detail {
-  background: var(--ivory); border: 2px solid rgba(74,53,36,.12); border-radius: 18px;
-  padding: 18px; display: flex; flex-direction: column; gap: 10px; min-height: 74px;
-}
-.story-detail .sd-name { font-size: 17px; font-weight: 800; }
-.story-detail .sd-note { color: var(--ink-soft); font-size: 13.5px; line-height: 1.5; }
-.story-detail .sd-recipe { font-weight: 800; font-size: 14px; color: var(--ink); }
-.story-detail .sd-daily {
-  color: #8a5c14; background: rgba(255, 214, 107, .4); border: 1.5px solid var(--butter-deep);
-  border-radius: 999px; padding: 2px 9px; font-size: 12px; margin-left: 4px; }
-.story-detail .sd-reward { display: flex; gap: 10px; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; }
-.story-detail .btn-play { width: 100%; }
+.story-tile.locked { opacity: .6; cursor: not-allowed; background: linear-gradient(175deg, #fbf6ec, #f2e7d4); }
+.story-tile.locked .st-dish { background: rgba(74,53,36,.07); border-color: rgba(74,53,36,.2); }
+.story-tile.sel { border-color: var(--butter-deep); box-shadow: 0 4px 0 rgba(233,166,58,.45); transform: translateY(-2px); }
+/* next-up level gets a soft call: the dish medallion lifts a touch */
+.story-tile.sel .st-dish { animation: deco-bob 2.4s ease-in-out infinite; }
+body.rm .story-tile.sel .st-dish { animation: none; }
+/* card rewards keep the coin / · / gem tokens from splitting, on both
+ * the story map and the dish shelf */
+.st-reward .rdot, .rc-rewards .rdot { color: var(--ink-soft); opacity: .55; flex: 0 0 auto; white-space: pre; }
+/* how many of the level's story fragments have been read (map + HUD) */
+.story-tile .st-parts { font-size: 11.5px; font-weight: 800; color: #8a5c14;
+  background: rgba(255, 214, 107, .3); border: 1.5px solid var(--butter-deep);
+  border-radius: 999px; padding: 2px 10px; }
+.story-parts-total { display: flex; justify-content: center; }
+.story-parts-chip { font-size: 12.5px; font-weight: 800; color: #8a5c14;
+  background: rgba(255, 214, 107, .32); border: 2px solid var(--butter-deep);
+  border-radius: 999px; padding: 5px 14px; }
+.story-parts-chip b { font-size: 13.5px; }
+.hud-parts { color: #8a5c14; border-color: var(--butter-deep); background: rgba(255, 214, 107, .34); }
+@media (max-width: 480px) { .story-tile .st-parts { font-size: 10.5px; padding: 2px 8px; } }
+/* the story parts page: level by level, in reading order */
+.story-parts-actions { display: flex; justify-content: center; }
+.story-parts-open { font-size: 13px; min-height: 38px; padding: 8px 16px; }
+.frag-list { display: flex; flex-direction: column; gap: 14px; width: 100%; padding: 2px 0 12px; }
+.frag-level { background: linear-gradient(175deg, #fffcf3, #fdf3df); border: 2px solid rgba(74,53,36,.16);
+  border-radius: 20px; padding: 12px 14px; box-shadow: 0 3px 0 rgba(74,53,36,.08); text-align: left; }
+.frag-level-head { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-bottom: 8px; color: var(--ink); font-size: 15px; }
+.frag-count { font-size: 11.5px; font-weight: 800; color: #8a5c14; background: rgba(255,214,107,.32);
+  border: 1.5px solid var(--butter-deep); border-radius: 999px; padding: 2px 9px; }
+.frag-parts { display: flex; flex-direction: column; gap: 8px; }
+.frag-part { display: flex; gap: 10px; align-items: flex-start; padding: 9px 10px; border-radius: 14px;
+  background: rgba(255,255,255,.6); border: 1.5px solid rgba(74,53,36,.1); }
+.frag-part.locked { opacity: .55; background: rgba(255,255,255,.35); }
+.frag-num { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 11.5px; font-weight: 800; color: #8a5c14; background: rgba(255,214,107,.5);
+  border: 1.5px solid var(--butter-deep); }
+.frag-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.frag-title { font-size: 13.5px; color: var(--ink); }
+.frag-text { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-soft); }
+@media (max-width: 480px) { .frag-level { padding: 10px 11px; } .frag-text { font-size: 12px; } }
 /* share destinations: cream chips with drawn pastel brand icons */
 .share-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 12px; }
 .share-chip { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 13px 6px 11px;
@@ -255,7 +326,7 @@ body.rm .title-deco canvas, body.rm .td-star { animation: none !important; }
   background: linear-gradient(160deg, #d5c6f5 30%, #a98fd9 100%); border-radius: 35% 22%
 }
 .ic-gem { clip-path: polygon(50% 0%, 100% 38%, 78% 100%, 22% 100%, 0% 38%); box-shadow: 0 0 0 2px rgba(143,116,201,.8) inset; }
-.story-reward-chip { display: inline-flex; align-items: center; gap: 5px; }
+.story-reward-chip { display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; white-space: nowrap; }
 
 /* modal head + x button */
 .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -289,6 +360,12 @@ body.rm .title-deco canvas, body.rm .td-star { animation: none !important; }
 
 .menu-stack { display: flex; flex-direction: column; gap: 14px; width: min(76vw, 320px); }
 .menu-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+/* the Ingredients tab's only route to more stock: the button itself says what
+ * it is for, so the tab no longer needs a line of copy under the list */
+/* .btn comes later in this sheet, so the button class is part of this
+ * selector to keep its own padding, gap and line spacing */
+.btn.shop-cta { flex-direction: column; gap: 1px; padding: 9px 22px 10px; line-height: 1.15; white-space: nowrap; }
+.shop-cta-hint { font-size: 11.5px; font-weight: 700; line-height: 1.2; color: rgba(74,53,36,.72); }
 .big-row { justify-content: center; }
 
 .tile-btn .tb-ic { display: flex; align-items: center; justify-content: center; }
@@ -461,18 +538,23 @@ body.rm .title-deco canvas, body.rm .td-star { animation: none !important; }
 .result-flavour { color: var(--ink-soft); font-size: 14.5px; line-height: 1.55; }
 .reward-line { font-weight: 700; font-size: 14px; color: var(--ink); display: flex; gap: 6px; align-items: center; justify-content: center; }
 .result-stats { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-/* “Ghee gathered” chip row on the result panel (Cook & Learn) */
+/* gathered-loot banner on every result panel (win or loss): the butter
+ * Banked-in-the-pantry card with the exact gathered-ingredient chips in it */
 .result-collected {
-  display: flex; gap: 9px; justify-content: center; align-items: center; flex-wrap: wrap;
-  margin: 0; font-size: 12px; color: var(--ink-soft);
+  display: flex; justify-content: center; flex-wrap: wrap;
+  margin: 0;
 }
 .result-collected.hidden { display: none; }
-.collected-label { text-transform: uppercase; letter-spacing: .06em; font-weight: 700; font-size: 10.5px; }
+.pantry-chips {
+  display: flex; gap: 9px; justify-content: center; align-items: center;
+  flex-wrap: wrap; margin-top: 9px;
+}
 .collected-chip {
   background: var(--ivory); border: 2px solid rgba(74,53,36,.1); border-radius: 999px;
   padding: 4px 10px 4px 6px; display: inline-flex; gap: 5px; align-items: center; font-size: 16px;
 }
 .collected-chip b { font-size: 12px; color: var(--ink-soft); }
+.collected-chip canvas { width: 22px; height: 22px; image-rendering: auto; }
 .result-stats .rstat {
   background: var(--ivory); border: 2px solid rgba(74,53,36,.1); border-radius: 14px;
   padding: 10px 16px; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 78px;
@@ -498,6 +580,19 @@ body.rm .title-deco canvas, body.rm .td-star { animation: none !important; }
   position: fixed; top: calc(30px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
   z-index: 40; display: flex; gap: 8px; flex-wrap: nowrap; white-space: nowrap;
 }
+/* shop wallet strip: sits under the tabs, above the goods */
+.shop-wallet { display: flex; justify-content: center; gap: 8px; margin-top: -10px; }
+.shop-wallet .hud-chip { background: rgba(255,253,246,.9); box-shadow: 0 2px 0 rgba(74,53,36,.08); }
+/* refused purchase: the short chip nudges and glows, no toast needed */
+@keyframes walletNudge {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  45% { transform: translateX(4px); }
+  70% { transform: translateX(-3px); }
+  90% { transform: translateX(2px); }
+}
+.hud-chip.flash { animation: walletNudge .55s ease; box-shadow: 0 0 0 3px rgba(224, 125, 139, .5); }
+body.rm .hud-chip.flash { animation: none; box-shadow: 0 0 0 4px rgba(224, 125, 139, .65); }
 .title-stats { background: none; border: 0; padding: 0; font: inherit; color: var(--ink); cursor: pointer; }
 .title-stats .hud-chip { box-shadow: 0 3px 0 rgba(74,53,36,.1); transition: transform .08s ease; }
 .title-stats:hover .hud-chip { transform: translateY(-1px); }
@@ -562,22 +657,30 @@ body.rm .bubble { animation: none !important; }
 @media (max-height: 620px) {
   .game-title { font-size: clamp(34px, 7vw, 54px); }
 }
+/* phones: the dish list rows name their level, the number badge shrinks */
 @media (max-width: 420px) {
   .icon-btn { width: 46px; height: 46px; }
   .icon-btn.big { width: 54px; height: 54px; }
-  .story-tile { font-size: 17px; }
+  .story-tile { border-radius: 18px; min-height: 132px; gap: 8px; padding: 22px 8px 13px; }
+  .story-tile .st-num { top: 7px; left: 7px; width: 22px; height: 22px; font-size: 11px; }
+  .story-tile .st-dish { width: 52px; height: 52px; font-size: 26px; }
+  .story-tile .st-name { font-size: 12.5px; }
+  .story-tile .st-note { font-size: 10.5px; }
+  .story-tile .st-play { min-height: 36px; font-size: 12px; }
 }
 
 /* ---------------- big screens ---------------- */
 @media (min-width: 1100px) {
   .title-card { gap: 16px; }
-  .story-grid { max-width: 560px; }
 }
 
 /* narrow phones: the modal frame gives back the 36px side kicks so the
  * content inside actually has room, still airy but much tighter */
 @media (max-width: 560px) {
   .panel { padding: 20px 16px; gap: 16px; border-radius: 22px; }
+  /* the stuck head's bleed must match phone padding, or it spills past
+   * the panel's rounded corner and drags the modal into a side scroll */
+  .panel .modal-head { top: -20px; margin: -20px -16px 0; padding: 16px 16px 12px; border-radius: 21px 21px 0 0; }
   /* phones: six hazard tiles can't share one row inside the box, so the
    * last few drop to a second line instead of spilling out of the section */
   /* packed to the left: as many tiles as the row holds, rest wrap below */
@@ -601,14 +704,6 @@ body.rm .bubble { animation: none !important; }
 
 /* title-screen recipe-book button uses the plain tile-button style */
 
-/* level-end Cook-Along overlay */
-#cook-overlay {
-  position: fixed; inset: 0; z-index: 30;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(46, 42, 68, .55); pointer-events: auto;
-}
-#cook-overlay.hidden { display: none; }
-
 /* continue-after-crash card: floats over the frozen game frame and asks
  * whether to spend gems and pick the run back up */
 #revive-overlay {
@@ -617,6 +712,24 @@ body.rm .bubble { animation: none !important; }
   background: rgba(46, 42, 68, .55); pointer-events: auto;
 }
 #revive-overlay.hidden { display: none; }
+
+/* story fragment card: floats over the frozen run, Continue resumes */
+#storypart-overlay {
+  position: fixed; inset: 0; z-index: 34;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(46, 42, 68, .55); pointer-events: auto; padding: 18px;
+}
+#storypart-overlay.hidden { display: none; }
+.storypart-card { background: var(--card); border: 3px solid rgba(74,53,36,.15); border-radius: 24px;
+  box-shadow: var(--shadow); padding: 24px 26px 20px; display: flex; flex-direction: column; gap: 10px;
+  align-items: center; text-align: center; max-width: min(90vw, 400px); }
+.storypart-kicker { font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+  color: #8a5c14; background: rgba(255, 214, 107, .35); border: 1.5px solid var(--butter-deep);
+  border-radius: 999px; padding: 3px 10px; }
+.storypart-title { margin: 2px 0 0; font-size: 21px; font-weight: 800; color: var(--ink); }
+.storypart-text { margin: 0; font-size: 14px; line-height: 1.55; color: var(--ink-soft); }
+.storypart-count { font-size: 12px; font-weight: 800; color: var(--ink-soft); }
+#storypart-go { min-width: 170px; margin-top: 4px; }
 .revive-card { background: var(--card); border: 3px solid rgba(74,53,36,.15); border-radius: 24px;
   box-shadow: var(--shadow); padding: 22px 26px 16px; display: flex; flex-direction: column; gap: 14px;
   align-items: center; text-align: center; max-width: min(88vw, 380px); }
@@ -625,11 +738,6 @@ body.rm .bubble { animation: none !important; }
 .revive-card .menu-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .revive-count { font-size: 12px; font-weight: 800; color: var(--ink-soft); }
 .disabled-cta { opacity: .55; }
-.cook-panel {
-  background: var(--card); border: 3px solid rgba(74,53,36,.2); border-radius: var(--radius);
-  padding: 20px 22px 24px; display: flex; flex-direction: column; gap: 14px; align-items: center;
-  box-shadow: var(--shadow); max-width: min(92vw, 400px); max-height: 94vh; overflow: auto;
-}
 .cook-head { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; width: 100%; }
 .cook-dish { font-size: 17px; color: var(--ink); white-space: nowrap; }
 .cook-dish-emoji { font-size: 22px; margin-right: 4px; }
@@ -650,65 +758,150 @@ body.rm .bubble { animation: none !important; }
 .tool-line, .daily-line { display: block; text-align: center; padding: 9px 14px; border-radius: 14px;
   background: rgba(255, 214, 107, .3); border: 2px solid rgba(233, 166, 58, .4); font-weight: 800; font-size: 13px; color: #8a5c14; }
 
-/* recipe book: same fixed modal width as every other modal, with each
- * recipe card spanning the full panel width in one listed column */
-/* pantry strip at the top of the kitchen */
-.kitchen-pantry { display: flex; align-items: center; justify-content: center; gap: 3px; flex-wrap: wrap; row-gap: 3px; }
-.kp-label { text-transform: uppercase; letter-spacing: .07em; font-weight: 700; font-size: 10.5px; color: var(--ink-soft); margin-right: 0; white-space: nowrap; flex: 0 0 auto; }
-.kp-chip { background: var(--ivory); border: 2px solid rgba(74,53,36,.12); border-radius: 999px; padding: 2px 5px 2px 4px; display: inline-flex; gap: 2px; align-items: center; font-size: 15px; flex: 0 0 auto; }
-.kp-chip.zero { opacity: .45; }
-.rc-cook { align-self: flex-start; }
-/* phones: the ingredient row is one line, so the chips slim down to fit */
-@media (max-width: 560px) {
-  .kitchen-pantry { gap: 3px; }
-  .kp-label { letter-spacing: .05em; }
-  .kp-chip { border-width: 1.5px; padding: 2px 4px 2px 3px; gap: 2px; font-size: 12.5px; }
-  .kp-chip b { font-size: 11px; }
+/* ====================================================
+ * Full-page screens (kitchen, story): their own page, NOT
+ * a card. The home button + title ride the page top, and
+ * the content flows full-width with no panel chrome:
+ * entering one feels like stepping into a location, like
+ * starting a mode. Shared skeleton: .page-head/.page-body.
+ * ==================================================== */
+.kitchen-page, .story-page { justify-content: flex-start; padding: 18px 16px 30px; gap: 0; flex-wrap: nowrap; }
+.page-head {
+  display: flex; align-items: center; gap: 12px; width: min(96vw, 640px); flex: 0 0 auto;
+  margin-bottom: 16px; position: sticky; top: 0; align-self: center;
+  background: var(--ivory); border-radius: 999px; padding: 8px 10px;
+  border: 2px solid rgba(74,53,36,.14); box-shadow: 0 2px 0 rgba(74,53,36,.10); z-index: 5;
 }
-/* narrow phones: trim further so label + 6 chips still ride one line */
-@media (max-width: 430px) {
-  .kitchen-pantry { gap: 2px; justify-content: space-between; padding: 0 2px; }
-  .kp-chip { border-width: 1px; padding: 1px 3px 1px 2px; gap: 1px; font-size: 11.5px; border-radius: 10px; }
-  .kitchen-pantry { justify-content: center; flex-wrap: wrap; row-gap: 3px; }
-  .kp-chip b { font-size: 10.5px; }
+.page-head h2 { flex: 1; text-align: center; margin: 0; font-size: 22px; color: var(--ink); }
+.page-spacer { flex: 0 0 38px; }
+.page-body { display: flex; flex-direction: column; gap: 22px; width: min(96vw, 640px); align-self: center; }
+/* the story screen centers its copy, the kitchen reads left-to-right */
+.story-page .page-body, .kitchen-page .page-body { text-align: center; }
+.kitchen-tabs { display: flex; gap: 10px; position: relative; align-self: center; }
+.kitchen-ind {
+  position: absolute; top: 0; left: 0; height: 100%; width: 110px; z-index: 0; border-radius: 999px;
+  background: var(--butter); border: 2px solid var(--butter-deep); box-shadow: 0 2px 0 var(--butter-deep);
+  will-change: transform, width;
+  transition: transform .24s cubic-bezier(.4, 0, .2, 1), width .24s cubic-bezier(.4, 0, .2, 1);
 }
-.pantry-nudge { background: rgba(255, 214, 107, .38); border-color: var(--butter-deep); color: #8a5c14; }
-.pantry-chips { display: flex; gap: 9px; justify-content: center; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.kitchen-ind.snap-only { transition: none; }
+.kitchen-tab { border: 2px solid transparent; background: none; color: var(--ink-soft);
+  border-radius: 999px; padding: 7px 18px; font: inherit; font-weight: 800; font-size: 13.5px; cursor: pointer;
+  position: relative; z-index: 1;
+  transition: color .2s ease;
+}
+.kitchen-tab.sel { background: none; border-color: transparent; box-shadow: none; color: #8a5c14; }
+.kitchen-view { display: flex; flex-direction: column; gap: 18px; width: 100%; }
+/* the daily special chip: the same butter paint as the shop's owned badge */
 .recipes-daily { display: flex; justify-content: center; }
 .daily-chip { background: rgba(255, 214, 107, .35); border: 2px solid var(--butter-deep); color: #8a5c14;
-  border-radius: 999px; padding: 16px; font-weight: 800; font-size: 12.5px; }
-.recipes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; width: 100%; }
+  border-radius: 999px; padding: 9px 16px; font-weight: 800; font-size: 12.5px; }
+
+/* dish shelf: the same card rhythm as the story map (dish medallion,
+ * name, status, one-line taste, cook pay and the action itself) */
+/* exactly the story map's rhythm: three across on the wide page, two
+ * on phones, same gaps and same tile proportions */
+.recipe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(212px, 1fr)); gap: 14px; width: 100%; padding: 4px 0 6px; }
+@media (max-width: 480px) { .recipe-grid { grid-template-columns: repeat(auto-fill, minmax(146px, 1fr)); gap: 10px; } }
 .recipe-card {
-  /* +5px bottom tail: room for the Cook button's 5px box-shadow, so its
-   * button face sits as far from the card edge as the title does from the top */
-  background: var(--ivory); border: 2px solid rgba(74,53,36,.14); border-radius: 18px; padding: 16px 16px 21px;
-  display: flex; flex-direction: column; gap: 10px; text-align: left; box-shadow: 0 3px 0 rgba(74,53,36,.08);
+  border-radius: 22px; cursor: pointer; position: relative; overflow: hidden;
+  border: 2px solid rgba(74,53,36,.14); background: linear-gradient(175deg, #fffcf3, #fdf3df);
+  box-shadow: 0 4px 0 rgba(74,53,36,.12);
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  padding: 16px 12px 14px; text-align: center;
+  transition: transform .08s ease, box-shadow .08s ease;
 }
-.recipe-card.cooked { border-color: var(--butter-deep); background: #fff9e8; }
-.recipe-card.locked { opacity: .62; background: var(--cream); }
-.rc-title { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
-.rc-emoji { font-size: 22px; }.rc-title b { font-size: 15px; }
-.rc-title small { color: var(--ink-soft); font-size: 12px; }
+.recipe-card::before {
+  content: ''; position: absolute; top: -22px; right: -22px; width: 72px; height: 72px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,214,107,.5), rgba(255,214,107,0) 72%); pointer-events: none;
+}
+.recipe-card:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(74,53,36,.12); }
+.recipe-card .rc-emoji {
+  width: 54px; height: 54px; border-radius: 50%; font-size: 27px; line-height: 1;
+  background: rgba(255,214,107,.32); border: 2px solid rgba(233,166,58,.4);
+  display: flex; align-items: center; justify-content: center;
+}
+.recipe-card .rc-name { font-size: 13.5px; line-height: 1.2; padding: 0 3px; }
+.recipe-card .rc-status { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; }
+.recipe-card .rc-tagline {
+  margin: 0; padding: 0 4px; font-size: 11.5px; font-weight: 600; line-height: 1.35; color: var(--ink-soft);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.recipe-card .rc-rewards { display: flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 800; white-space: nowrap; }
+.recipe-card .rc-rewards .hud-ic { width: 15px; height: 15px; }
+.recipe-card .rc-cta { width: 100%; margin-top: auto; min-height: 40px; padding: 8px 10px; font-size: 13px; }
+.recipe-card.done { border-color: rgba(233,166,58,.55); background: linear-gradient(165deg, #fff4d6, #ffe490); }
+.recipe-card.locked { opacity: .6; cursor: not-allowed; background: linear-gradient(175deg, #fbf6ec, #f2e7d4); }
+.recipe-card.locked .rc-emoji { background: rgba(74,53,36,.07); border-color: rgba(74,53,36,.2); }
+.rr-chip { padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.rr-chip.new { background: rgba(168,220,195,.35); border: 1.5px solid var(--mint-deep); color: #38714f; }
+.rr-chip.stars { color: var(--butter-deep); font-size: 14px; padding: 0 4px; }
+.rr-chip.daily { background: rgba(255,214,107,.4); border: 1.5px solid var(--butter-deep); color: #8a5c14; }
+.rr-chip.lock { background: rgba(199,184,232,.3); border: 1.5px solid var(--lav-deep); color: var(--lav-deep); }
 
+/* dish detail: the recipe the dish comes from (needs, real steps, tip) */
+/* the kitchen counter: cooking stays on the page, never in a modal */
+.cook-station { display: flex; flex-direction: column; gap: 18px; width: 100%; align-items: center;
+  background: linear-gradient(180deg, #fffaf0, #fdf0da); border: 2px solid rgba(74,53,36,.16);
+  border-radius: 22px; padding: 16px 16px 18px; box-shadow: 0 4px 0 rgba(74,53,36,.1); }
+.cook-station .cook-head { position: relative; }
+.cook-help { position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+  width: 34px; height: 34px; border-radius: 50%; border: 2px solid rgba(74,53,36,.2);
+  background: rgba(255,255,255,.75); color: var(--ink); font: inherit; font-weight: 800;
+  font-size: 16px; line-height: 1; cursor: pointer; }
+.cook-help:active { transform: translateY(calc(-50% + 1px)); }
+.cook-steps { width: 100%; text-align: left; background: rgba(255,255,255,.68);
+  border: 2px solid rgba(74,53,36,.12); border-radius: 16px; padding: 10px 14px; }
+.cook-steps h4 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--ink-soft); text-align: center; }
+.cook-steps ol { margin: 0 0 6px 18px; padding: 0; font-size: 13px; line-height: 1.5;
+  color: var(--ink); display: grid; gap: 4px; }
+.cook-tip { margin: 0; font-size: 12px; color: var(--ink-soft); text-align: center; }
+.cook-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.cook-done { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; width: 100%; }
+/* the two buttons sit one step further off than the lines above them, so the
+ * result reads as title, stars, pay, note, then the choice you make next */
+.cook-done .cook-actions { margin-top: 4px; }
+.cook-done b { font-size: 18px; color: var(--ink); }
+.cook-done-stars { font-size: 20px; color: #e9a63a; letter-spacing: 3px; }
+.cook-done-pay { display: inline-flex; align-items: center; gap: 5px; font-weight: 800; font-size: 14px; }
+.cook-done-pay .hud-ic { width: 17px; height: 17px; }
+.cook-done-note { margin: 0; font-size: 12.5px; color: var(--ink-soft); }
+#cook-canvas { margin: 0 auto; }
+@media (max-width: 480px) {
+  .cook-station { padding: 12px 10px 14px; }
+  .cook-station .cook-head { padding-right: 36px; }
+}
+/* Ingredients tab: the stock shelf, drawn with the game's counter art */
+.ingredients-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 560px) { .ingredients-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ing-row { background: var(--ivory); border: 2px solid rgba(74,53,36,.14); border-radius: 16px;
+  padding: 12px 10px; display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center;
+  box-shadow: 0 3px 0 rgba(74,53,36,.08); }
+/* an empty row dims its own parts, not the restock hint: the hint is the
+ * thing worth tapping on a row with nothing in the pantry */
+.ing-row.empty > b,
+.ing-row.empty .ing-art,
+.ing-row.empty .ing-count { opacity: .58; }
+.ing-art { width: 46px; height: 46px; }
+.ing-count { font-size: 12.5px; color: var(--ink-soft); font-weight: 700; }
+.ing-count.none { font-size: 11.5px; }
+/* running-low rows: a small restock pill that opens the Kitchen Shelf */
+.ing-restock {
+  display: inline-flex; align-items: center; gap: 3px; margin-top: 1px;
+  padding: 3px 9px 3px 7px; border-radius: 999px;
+  border: 1.6px solid var(--butter-deep); background: rgba(255, 214, 107, .5);
+  color: var(--ink); font: inherit; font-size: 10.5px; font-weight: 800; line-height: 1.2;
+  cursor: pointer; box-shadow: 0 1.5px 0 rgba(74, 53, 36, .16);
+  transition: transform .08s ease, background-color .15s ease;
+}
+.ing-restock .hud-ic { width: 13px; height: 13px; }
+.ing-restock b { font-size: 11px; color: #8a5a10; }
+.ing-restock:hover { background: rgba(255, 214, 107, .78); }
+.ing-restock:active { transform: translateY(1px); box-shadow: none; }
 
-.rc-lock { align-self: stretch; border-radius: 10px; padding: 6px 10px; font-size: 12px; font-weight: 700;
-  background: rgba(199, 184, 232, .25); color: var(--lav-deep); border: 2px dashed rgba(143, 116, 201, .5); }
 .rc-ing { display: flex; gap: 8px; flex-wrap: wrap; }
 .rs-ing { background: var(--card); border: 2px solid rgba(74,53,36,.18); border-radius: 999px; padding: 4px 12px; font-size: 15px; font-weight: 700; }
-.rc-steps { margin-left: 20px; font-size: 13px; line-height: 1.5; color: var(--ink); display: grid; gap: 5px; }
-.rc-fact { font-size: 12px; color: var(--ink-soft); background: rgba(255, 233, 168, .45); border-radius: 10px; padding: 6px 9px; }
-/* cook pays: a roomy label + one chip per prize, so the prizes scan
- * at a glance instead of running together as dense text. Big enough
- * type and enough chip/card contrast to read at a glance; everything
- * rides one line */
-.rc-reward { display: flex; align-items: center; justify-content: flex-start; flex-wrap: nowrap; gap: 8px; font-size: 14px; min-width: 0; }
-.rc-pays .rp-label { font-size: 14px; font-weight: 800; color: var(--ink); flex-shrink: 0; }
-.rc-pays .rp-chip { display: inline-flex; align-items: center; gap: 4px; background: transparent;
-  border: 0; border-radius: 999px; padding: 4px 0; font-weight: 800; font-size: 14px; color: var(--ink); white-space: nowrap; }
-.rc-pays .rp-tool { color: #8a5c14; }
-.rc-pays .hud-ic { width: 17px; height: 17px; }
-.rc-pays .rp-chip .shelf-icon { width: 20px; height: 20px; vertical-align: -5px; }
-
 /* kitchen shelf (shop tab 2) */
 /*
  * Sliding pill: the butter indicator element carries the selected look and
@@ -752,6 +945,10 @@ body.rm .bubble { animation: none !important; }
 .shelf-icon-slot .shelf-icon { width: 100%; height: 100%; display: block; vertical-align: baseline; }
 .shelf-item b { font-size: 14px; white-space: nowrap; }        /* names are two words max, never wrap */
 .shelf-item small { color: var(--ink-soft); font-size: 12px; line-height: 1.35; }
+/* ingredient restock rows: the live pantry count, mint like the ok state */
+.shelf-item .shelf-pantry { color: var(--mint-deep, #4f9179); font-weight: 800; }
+/* ingredient icons share the slot size; the sprite scales up to fill it */
+.shelf-icon-slot .ing-art { width: 100%; height: 100%; display: block; }
 /* cut: .Char badge stays absolute at the card's apex (char-card rule).
  * Shelf items have no anchor so that same rule flies them out of the card
  * to the grid top — reset it right here, scoped to the shelf. */
@@ -763,15 +960,23 @@ body.rm .bubble { animation: none !important; }
 .cc-badge .hud-ic { width: 16px; height: 16px; }
 .rs-wallet { font-size: 11px; color: var(--ink-soft); font-weight: 700; }
 .rs-wallet .hud-ic { width: 13px; height: 13px; vertical-align: -2px; }
-.shelf-grid .btn { align-self: flex-start; }
-@media (max-width: 480px) { .recipes-grid { grid-template-columns: 1fr; } }
+/* buy buttons share one geometry across every card: full width and
+ * pinned to the card's bottom edge, so a two-line blurb next to a
+ * three-line blurb still lands both buttons on the same line */
+.shelf-grid .btn { align-self: stretch; width: 100%; }
+.shelf-grid .shelf-buy { margin-top: auto; }
+
 /* small phones: the reward row keeps one line by dropping the chip
  * pill chrome (icons + bold text carry the values) */
 @media (max-width: 420px) {
   .recipe-card { padding: 12px 12px 17px; }
-  .rc-reward { gap: 6px; }
-  .rc-pays .rp-chip { background: transparent; border: 0; padding: 2px 0; font-size: 12px; }
-  .rc-pays .hud-ic { width: 12px; height: 12px; }
-  .rc-pays .rp-chip .shelf-icon { width: 13px; height: 13px; }
-  .rc-pays .rp-label { font-size: 12px; }
+}
+
+/* kitchen page: the recipes panel gets a little extra body over the game
+ * look, and phones keep the wide frame so both tabs read like pages */
+@media (max-width: 560px) {
+  .kitchen-page { padding: 12px 12px 24px; }
+  .page-head h2 { font-size: 19px; }
+  .kitchen-view { gap: 14px; }
+  .ing-art { width: 40px; height: 40px; }
 }

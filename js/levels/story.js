@@ -18,6 +18,12 @@ WW.STORY_LEVELS = [
   {
     id: 'sleepy-counter', name: 'The Sleepy Counter',
     note: 'Magic woke Ghee at midnight and scattered. Follow the coins.',
+    /* story fragments: the run pauses on each one, in x order */
+    story: [
+      { at: 420, title: 'Midnight', text: 'The kitchen clock struck twelve and every wick went out at once. Ghee woke on the counter, small and warm, with magic still fizzing in the air.' },
+      { at: 1320, title: 'The Coins', text: 'Coins lay scattered along the counter where the magic had run. Ghee followed them the way you follow a trail of crumbs home.' },
+      { at: 1900, title: 'The First Wick', text: 'At the end of the counter one wick still waited, faint as a whisper. It only needed a little warmth to remember how to burn.' },
+    ],
     length: 2600, theme: 'warm', parallax: 'window', platforms: true,
     goal: { x: 2520, caption: 'A little wick waits to be lit…' },
     decorations: ['window', 'shelf'],
@@ -51,6 +57,11 @@ WW.STORY_LEVELS = [
   {
     id: 'rolling-pin', name: 'The Rolling Pin Run',
     note: 'Someone left the pins out. They roll to a rhythm all their own.',
+    story: [
+      { at: 560, title: 'The Pins Woke Up', text: 'The rolling pins woke with the magic and were in no hurry to stop. Back and forth they swung, keeping a rhythm only they could hear.' },
+      { at: 1830, title: 'The Rhythm', text: 'Ghee learned the pins song: pause, wait for the gap, then hop. Even the busiest counter keeps a quiet beat inside it.' },
+      { at: 2410, title: 'Second Wick', text: 'The second wick took the light easily, and the whole kitchen grew a shade warmer for it.' },
+    ],
     length: 2800, theme: 'flour', parallax: 'shelf',
     goal: { x: 2740, caption: 'One more wick steadies the kitchen…' },
     decorations: ['shelf', 'pin-rack'],
@@ -78,6 +89,11 @@ WW.STORY_LEVELS = [
   {
     id: 'butter-slide', name: 'The Butter Slide',
     note: 'A warm pat of butter melts across the tiles. Ghee skates!',
+    story: [
+      { at: 520, title: 'Butter Everywhere', text: 'A pat of butter had melted across the tiles in the night, smooth as a skating pond. Ghee stepped on and went gliding.' },
+      { at: 1600, title: 'The Skate', text: 'Sliding is not falling, Ghee decided. You lean, you steer, you enjoy the ride, and you hop before the flour pile.' },
+      { at: 2020, title: 'Third Wick', text: 'The third wick flickered awake, and the kitchen smelled of warm butter and old songs.' },
+    ],
     length: 2600, theme: 'butter', parallax: 'shelf',
     goal: { x: 2540, caption: 'The lantern hums softly…' },
     decorations: ['shelf', 'butter-dish'],
@@ -105,6 +121,11 @@ WW.STORY_LEVELS = [
   {
     id: 'sticky-situation', name: 'The Sticky Situation',
     note: 'A milk jug tipped; jam followed. The counter is a mess, a lovely one.',
+    story: [
+      { at: 520, title: 'The Spill', text: 'The milk jug tipped, and the jam followed it, and the counter became a slow, sweet, sticky river.' },
+      { at: 1500, title: 'Slow Going', text: 'Jam clings. Ghee learned to run before it, not through it, and to pick up speed again on the clean tiles.' },
+      { at: 2150, title: 'Fourth Wick', text: 'Four wicks now. The kitchen was starting to look like itself again, one warm corner at a time.' },
+    ],
     length: 2800, theme: 'milk', parallax: 'window',
     goal: { x: 2740, caption: 'Three wicks now burn warm…' },
     decorations: ['window', 'milk-crate'],
@@ -132,6 +153,11 @@ WW.STORY_LEVELS = [
   {
     id: 'last-spark', name: 'The Kitchen\u2019s Last Spark',
     note: 'All the magic the kitchen has left. One run to give it back.',
+    story: [
+      { at: 300, title: 'The Last Magic', text: 'Every shelf was dim. The kitchen had one spark left, and it was hiding at the far end of the longest counter yet.' },
+      { at: 1000, title: 'The Breeze', text: 'A little fan turned in the dark, holding Ghee back with nothing but air. Even a breeze can be hopped over.' },
+      { at: 2960, title: 'The Last Wick', text: 'The last wick was not very far now. It waited, patient, for the smallest warm hand in the kitchen.' },
+    ],
     length: 3200, theme: 'night', parallax: 'window',
     goal: { x: 3120, caption: 'The last wick. Everything depends on it…' },
     decorations: ['window', 'shelf', 'pin-rack'],
@@ -140,7 +166,7 @@ WW.STORY_LEVELS = [
       { t: 'butter', x: 1700, w: 210 }, { t: 'pin', x: 2100, range: 180 }, { t: 'milk', x: 2400, w: 170 },
       { t: 'flour', x: 2750 },
     ],
-    sparks: [420, 520, 620, 720, 820, 1000, 1250, 1450, 1650, 1850, 2050, 2250, 2450, 2650, 2850],
+    sparks: [420, 464, 520, 720, 820, 1000, 1250, 1450, 1650, 1850, 2050, 2250, 2450, 2650, 2850],
     gems: [1000, 1850, 2850],
     platforms: [ { x: 980, w: 140, y: 96 }, { x: 1900, w: 160, y: 100 }, { x: 2600, w: 140, y: 96 } ],
     ingredients: [
@@ -158,6 +184,73 @@ WW.STORY_LEVELS = [
     hints: { fan: 'A little fan holds Ghee to a crawl! Hop over its breeze.' },
   },
 ];
+
+/* ----------------------------------------------------------------
+ * §1b Story page placement: a page never sits on an obstacle.
+ * A page inside a flour cloud, a puddle, a pin's patrol or a fan's breeze
+ * asks the player to hop into the exact spot they have to avoid, so pages
+ * keep the same 90u of clean counter the level design leaves between
+ * hazards. Takes the page's authored x and returns that x, or the nearest
+ * clear stretch when the authored spot is blocked.
+ * ---------------------------------------------------------------- */
+const PAGE_CLEAR = 90;
+const HAZ_W = { flour: 84, jamdrop: 40, pin: 104, fan: 60 };
+const hazardFootprint = (h) => {
+  const w = h.w || HAZ_W[h.t] || 46;
+  const reach = h.t === 'fan' ? (WW.Physics ? WW.Physics.WIND.reach : 220) : 0;  // breeze blows back at the player
+  const patrol = h.t === 'pin' ? (h.range || 0) : 0;                             // a pin sweeps its whole range
+  return [h.x - reach, h.x + w + patrol];
+};
+WW.storyPageX = (x, hazards = [], length = 2600) => {
+  const min = 160, max = length - 160;
+  const spans = hazards.map(hazardFootprint)
+    .map(([a, b]) => [a - PAGE_CLEAR, b + PAGE_CLEAR])
+    .sort((p, q) => p[0] - q[0]);
+  /* the clear stretches between the blocked ones, inside the level's ends */
+  const gaps = [];
+  let cursor = min;
+  for (const [a, b] of spans) {
+    if (b < min || a > max) continue;
+    if (a > cursor) gaps.push([cursor, Math.min(a, max)]);
+    cursor = Math.max(cursor, b);
+  }
+  if (cursor < max) gaps.push([cursor, max]);
+  const clear = (v) => gaps.some(([a, b]) => v >= a && v <= b);
+  if (clear(x)) return x;
+  /* blocked: land on the nearest clear point, keeping the page's order */
+  let best = null;
+  for (const [a, b] of gaps) {
+    const v = Math.max(a, Math.min(b, x));
+    if (best === null || Math.abs(v - x) < Math.abs(best - x)) best = v;
+  }
+  return best === null ? x : Math.round(best);
+};
+
+/* ----------------------------------------------------------------
+ * §1c Pickup placement: a coin or an ingredient never sits inside a
+ * hazard either. A page needs room to stand and read, so it keeps the
+ * full 90u runway above; a pickup only clashes when it is low enough to
+ * be swept while grounded, because a coin floating over a pile is the
+ * reward for hopping it. Puddles are crossed on purpose (the slide is the
+ * whole point of them), so only the things that hurt count: flour, pins
+ * and the fan's breeze.
+ * ---------------------------------------------------------------- */
+const HAZ_TOP = { flour: 40, pin: 34, fan: 90 };   // height of each danger zone
+const PICK_PAD = 16;                               // keep the art clear of the edge
+WW.storyPickupX = (x, hazards = [], y = 0, length = 2600, r = 14) => {
+  const min = 160, max = Math.max(min, length - 160);
+  const spans = hazards
+    .filter(h => HAZ_TOP[h.t] !== undefined && y - r < HAZ_TOP[h.t])
+    .map(hazardFootprint)
+    .map(([a, b]) => [a - PICK_PAD, b + PICK_PAD]);
+  const inside = (v) => spans.some(([a, b]) => v > a && v < b);
+  if (!spans.length || !inside(x)) return x;
+  /* step out to whichever edge of the blocked stretch is closer */
+  const candidates = spans.flat()
+    .filter(v => v >= min && v <= max && !inside(v))
+    .sort((p, q) => Math.abs(p - x) - Math.abs(q - x));
+  return Math.round(candidates.length ? candidates[0] : Math.max(min, Math.min(max, x)));
+};
 
 /* ----------------------------------------------------------------
  * §2  Endless mode, designed chunk patterns, rising difficulty.

@@ -7,8 +7,7 @@
 <title>Whimsy Wick</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="./css/main.css?v=83" />
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet" />  <link rel="stylesheet" href="./css/main.css?v=109" />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='18' r='11' fill='%23ffd66b'/><circle cx='16' cy='16' r='9' fill='%23ffedb0'/></svg>" />
 </head>
 <body>
@@ -18,6 +17,7 @@
 <div id="hud" class="hidden">
   <div class="hud-left">
     <span id="hud-level" class="hud-chip hud-chip-title">The Sleepy Counter</span>
+    <span id="hud-story-parts" class="hud-chip hud-parts hidden" aria-live="polite">Story <b id="hud-story-parts-n">0/3</b></span>
     <span id="hud-ingredients" class="hud-ings hidden" aria-live="polite"></span>
   </div>
   <div class="hud-right">
@@ -41,7 +41,7 @@
 <div id="gesture-hint" class="ui-block hidden">
   <div class="hint-card">
     <span>Tap to hop · Hold for a higher hop</span>
-    <button id="hint-dismiss">Got it</button>
+    <button id="hint-dismiss">Got It</button>
   </div>
 </div>
 
@@ -56,17 +56,6 @@
 </div>  <!-- hazard hint toast -->
   <div id="hint-toast" class="ui-block hidden"><div class="hint-card" id="hint-toast-text"></div></div>
 
-  <!-- level-end Cook-Along (one recipe per story level) -->
-  <div id="cook-overlay" class="ui-block hidden">
-    <div class="cook-panel">
-      <div class="cook-head">
-        <h2 id="cook-dish" class="cook-dish"></h2>
-        <button class="btn btn-soft" id="cook-abort">Skip cooking</button>
-      </div>
-      <div id="cook-ings" class="cook-ings"></div>
-      <canvas id="cook-canvas" class="cook-canvas"></canvas>
-    </div>
-  </div>
 
   <!-- continue-after-a-crash revival offer (spend gems, keeps the run) -->
   <div id="revive-overlay" class="ui-block hidden">
@@ -75,9 +64,20 @@
       <p class="revive-sub" id="revive-sub"></p>
       <div class="menu-row">
         <button id="revive-yes" class="btn btn-primary"><span class="buy-label">Continue</span><span class="char-price" id="revive-cost"></span></button>
-        <button id="revive-no" class="btn btn-soft">No thanks</button>
+        <button id="revive-no" class="btn btn-soft">No Thanks</button>
       </div>
       <span id="revive-count" class="revive-count" aria-live="polite"></span>
+    </div>
+  </div>
+
+  <!-- story fragment: a run pauses here until the part is read -->
+  <div id="storypart-overlay" class="ui-block hidden">
+    <div class="storypart-card">
+      <span class="storypart-kicker" id="storypart-kicker">Story</span>
+      <h3 class="storypart-title" id="storypart-title"></h3>
+      <p class="storypart-text" id="storypart-text"></p>
+      <span class="storypart-count" id="storypart-count"></span>
+      <button id="storypart-go" class="btn btn-primary">Continue</button>
     </div>
   </div>
 
@@ -105,24 +105,27 @@
       <!-- cute font title + hero art -->
       <h1 class="game-title" id="game-title">Whimsy Wick</h1>
       <div class="menu-stack">
-        <button class="tile-btn primary" id="btn-story" aria-label="Story mode">
-          <span class="tb-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1.8 1.6 3 3.7 3 6.5S13.8 14 12 15.6C10.2 14 9 11.8 9 9.5S10.2 4.6 12 3z" fill="currentColor" opacity=".28"/><path d="M12 15.6c1.8 1.5 3 3.4 3 5.4H9c0-2 1.2-3.9 3-5.4z" fill="currentColor" opacity=".28"/><path d="M12 3c1.8 1.6 3 3.7 3 6.5s-1.2 4.5-3 6.1c-1.8-1.6-3-3.4-3-6.1S10.2 4.6 12 3z"/><path d="M12 15.6c1.8 1.5 3 3.4 3 5.4H9c0-2 1.2-3.9 3-5.4z"/><path d="M12 15.6V21" opacity=".5"/></svg></span>
-          <span class="tb-label">Story mode</span>
+        <button class="tile-btn primary" id="btn-story" aria-label="Story Mode">
+          <!-- the in-game story page, drawn to the same proportions as its
+               counter art: cream sheet, lavender folded corner, gold dot,
+               three ruled lines -->
+          <span class="tb-ic"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2" fill="currentColor" opacity=".14"/><rect x="5" y="4" width="14" height="17" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M19 4v5.2h-5.4Z" fill="#e8dcf7" stroke="rgba(120,92,170,.55)" stroke-width=".8" stroke-linejoin="round"/><circle cx="12" cy="6.6" r="1.8" fill="#ffd66b" stroke="rgba(184,121,31,.75)" stroke-width=".7"/><path d="M7.6 11.7h8.8M7.6 14.3h6.6M7.6 16.9h7.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span>
+          <span class="tb-label">Story Mode</span>
         </button>
         <button class="tile-btn" id="btn-recipes" aria-label="Whimsical Kitchen">
-          <span class="tb-ic">🍳</span>
+          <span class="tb-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.2h16l-1.2 7.9a1.9 1.9 0 0 1-1.9 1.6H7.1a1.9 1.9 0 0 1-1.9-1.6Z" fill="currentColor" opacity=".18" stroke="none"/><path d="M4 11.2h16l-1.2 7.9a1.9 1.9 0 0 1-1.9 1.6H7.1a1.9 1.9 0 0 1-1.9-1.6Z"/><path d="M2.4 11.2h19.2"/><path d="M8 8.2V6.4M12 8.2V5.2M16 8.2V6.4"/></svg></span>
           <span class="tb-label">Whimsical Kitchen</span>
         </button>
-        <button class="tile-btn" id="btn-endless" aria-label="Endless mode">
+        <button class="tile-btn" id="btn-endless" aria-label="Endless Mode">
           <span class="tb-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4Zm0 0c2 2.67 4 4 6 4a4 4 0 1 0 0-8c-2 0-4 1.33-6 4Z"/></svg></span>
-          <span class="tb-label">Endless mode</span>
+          <span class="tb-label">Endless Mode</span>
         </button>
       </div>
       <div class="menu-row title-topbar">
         <button class="icon-btn" id="btn-chars" aria-label="Shop">
           <svg viewBox="0 0 24 24" aria-hidden="true"><g transform="translate(-4.764 -4.4) scale(1.32)"><path d="M4.5 7h15l1.4 3.4c0 1.2-1 2.2-2.2 2.2-1 0-1.9-.7-2.1-1.7-.2 1-1.1 1.7-2.1 1.7-.6 0-1.2-.2-1.6-.6-.4.4-1 .6-1.6.6-1 0-1.9-.7-2.1-1.7-.2 1-1.1 1.7-2.1 1.7-1.2 0-2.2-1-2.2-2.2z" fill="#ffd66b" stroke="#b8791f" stroke-width="1.7" stroke-linejoin="round"/><rect x="5" y="13.2" width="14" height="7.3" rx="1.6" fill="#f3e4c6" stroke="#b8791f" stroke-width="1.7"/><rect x="10.4" y="14.6" width="3.2" height="5.9" rx="1" fill="#c7b8e8" stroke="#b8791f" stroke-width="1.2"/></g></svg>
         </button>
-        <button class="icon-btn" id="btn-howto" aria-label="How to play">
+        <button class="icon-btn" id="btn-howto" aria-label="How To Play">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.9h13.6a1.3 1.3 0 0 1 1.3 1.3v15.6a1.3 1.3 0 0 1-1.3 1.3H6a2.6 2.6 0 0 1-2.6-2.6V5.5A2.6 2.6 0 0 1 6 2.9Z" fill="#f3e4c6" stroke="#b8791f" stroke-width="1.8" stroke-linejoin="round"/><path d="M14.3 2.9v6.6l2.1-1.4 2.1 1.4V2.9Z" fill="#c7b8e8" stroke="#b8791f" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.9 14.9h9.4" stroke="#c98a4b" stroke-width="1.6" stroke-linecap="round"/><path d="M6.9 17.6h6.1" stroke="#c98a4b" stroke-width="1.6" stroke-linecap="round"/></svg>
         </button>
         <button class="icon-btn" id="btn-settings" aria-label="Settings">
@@ -130,7 +133,7 @@
         </button>
       </div>
       <!-- your records, top-centre of home -->
-      <button class="title-stats" id="title-stats" type="button" aria-label="Your records">
+      <button class="title-stats" id="title-stats" type="button" aria-label="Your Records">
         <span class="hud-chip hud-coin" title="Coin balance" aria-label="Coin balance"><svg class="hud-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#ffe08a" stroke="#b8791f" stroke-width="2.4"/><path d="M12 8.2l1.1 2.2 2.4.3-1.8 1.8.5 2.4-2.2-1.2-2.2 1.2.5-2.4-1.8-1.8 2.4-.3z" fill="#c98a1e" opacity=".85"/></svg><b id="ts-coins">0</b></span>
         <span class="hud-chip hud-gem" title="Gems" aria-label="Gems"><svg class="hud-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l7 5.2-2.4 10H7.4L5 7.8z" fill="#d5c6f5" stroke="#8f74c9" stroke-width="2.2" stroke-linejoin="round"/><path d="M9.6 7.8l2.4 10 2.4-10-2.4-3.4z" fill="#a98fd9" opacity=".6"/></svg><b id="ts-gems">0</b></span>
         <span class="hud-chip hud-score" title="Best score" aria-label="Best score"><svg class="hud-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z" fill="#ffd9e0"/><path d="M7 6H4.5a2.5 2.5 0 0 0 2.6 3.4M17 6h2.5a2.5 2.5 0 0 1-2.6 3.4M12 14v3.5M8.5 20.5h7M9.5 17.5h5"/></svg><b id="ts-best">0</b></span>
@@ -139,22 +142,43 @@
       <div class="startng-card ui-block" id="startng-card" hidden>
         <img id="player-face" alt="" />
         <div class="sc-meta"><b id="player-name">Guest</b><span id="player-account">Not signed in</span></div>
-        <button id="player-sign-in" hidden>Sign in</button>
+        <button id="player-sign-in" hidden>Sign In</button>
       </div>
     </div>
   </section>
 
-  <!-- ============ STORY MAP (base screen, tile grid) ============ -->
-  <section class="screen hidden" id="screen-story">
-    <div class="panel story-panel">
-      <div class="modal-head">
-        <h2>Story Mode</h2>
-        <button class="x-btn" data-close="story" aria-label="Close">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-        </button>
+  <!-- ============ STORY MAP (its own page, tile grid) ============ -->
+  <section class="screen hidden story-page" id="screen-story">
+    <!-- page head: back returns to the title, title rides the page top -->
+    <header class="page-head">
+      <button class="x-btn" data-close="story" aria-label="Back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h2>Story Mode</h2>
+      <span class="page-spacer" aria-hidden="true"></span>
+    </header>
+    <div class="page-body">
+      <p class="screen-sub story-sub">Light every wick: each level hides the ingredients of its dish. Cook them later in the Whimsical Kitchen.</p>
+      <div class="story-parts-actions">
+        <button id="btn-fragments" class="btn btn-soft story-parts-open" type="button">Read Collected Parts</button>
       </div>
       <div id="story-grid" class="story-grid"></div>
-      <div id="story-detail" class="story-detail"></div>
+    </div>
+  </section>
+
+  <!-- ============ STORY PARTS (reread every fragment found) ============ -->
+  <section class="screen hidden story-page" id="screen-fragments">
+    <header class="page-head">
+      <button class="x-btn" id="frag-back" aria-label="Back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h2>Story Parts</h2>
+      <span class="page-spacer" aria-hidden="true"></span>
+    </header>
+    <div class="page-body">
+      <p class="screen-sub" id="frag-sub">Every part of the story you have found so far.</p>
+      <div id="frag-total" class="story-parts-total"></div>
+      <div id="frag-list" class="frag-list"></div>
     </div>
   </section>
 
@@ -171,6 +195,11 @@
         <span class="shop-ind" aria-hidden="true"></span>
         <button class="shop-tab sel" id="tab-spirits" type="button">Spirits</button>
         <button class="shop-tab" id="tab-shelf" type="button">Kitchen Shelf</button>
+      </div>
+      <!-- the wallet rides the shop head: it flashes when a buy is refused -->
+      <div class="shop-wallet" id="shop-wallet" aria-live="polite">
+        <span class="hud-chip hud-coin" title="Coin balance" aria-label="Coin balance"><svg class="hud-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#ffe08a" stroke="#b8791f" stroke-width="2.4"/><path d="M12 8.2l1.1 2.2 2.4.3-1.8 1.8.5 2.4-2.2-1.2-2.2 1.2.5-2.4-1.8-1.8 2.4-.3z" fill="#c98a1e" opacity=".85"/></svg><b id="shop-coins">0</b></span>
+        <span class="hud-chip hud-gem" title="Gems" aria-label="Gems"><svg class="hud-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l7 5.2-2.4 10H7.4L5 7.8z" fill="#d5c6f5" stroke="#8f74c9" stroke-width="2.2" stroke-linejoin="round"/><path d="M9.6 7.8l2.4 10 2.4-10-2.4-3.4z" fill="#a98fd9" opacity=".6"/></svg><b id="shop-gems">0</b></span>
       </div>
       <div class="shop-body">
         <div id="char-grid" class="char-grid"></div>
@@ -224,7 +253,7 @@
   <section class="screen overlay-screen hidden" id="screen-records">
     <div class="panel records-panel">
       <div class="modal-head">
-        <h2>Your records</h2>
+        <h2>Your Records</h2>
         <button class="x-btn" data-close="records" aria-label="Close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
@@ -237,7 +266,7 @@
           <tbody id="records-runs"></tbody>
         </table>
       </div>
-      <p id="records-empty" class="screen-sub hidden">No scores on the board yet. Play Endless mode to set the first one!</p>
+      <p id="records-empty" class="screen-sub hidden">No scores on the board yet. Play Endless Mode to set the first one!</p>
     </div>
   </section>
 
@@ -271,8 +300,8 @@
           <span class="toggle"><input type="checkbox" id="set-rm" /><i></i></span>
         </label>
         <div class="menu-row">
-          <button class="btn btn-soft" id="set-replay-tutorial">Replay tutorial</button>
-          <button class="btn btn-soft" id="set-reset">Reset progress</button>
+        <button class="btn btn-soft" id="set-replay-tutorial">Replay Tutorial</button>
+        <button class="btn btn-soft" id="set-reset">Reset Progress</button>
         </div>
       </div>
     </div>
@@ -282,7 +311,7 @@
   <section class="screen overlay-screen hidden" id="screen-signin">
     <div class="panel">
       <div class="modal-head">
-        <h2>Sign in</h2>
+        <h2>Sign In</h2>
         <button class="x-btn" data-close="signin" aria-label="Close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
@@ -291,7 +320,7 @@
       <div class="menu-row">
         <button class="btn btn-primary" id="signin-go">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="btn-ic"><path d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M4.5 20.5c0-3.6 3.4-6.5 7.5-6.5s7.5 2.9 7.5 6.5"/></svg>
-        Sign in with start.ng</button>
+        Sign In With start.ng</button>
       </div>
     </div>
   </section>
@@ -312,7 +341,7 @@
         <button class="icon-btn big" id="pause-restart" aria-label="Restart">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.05 12a8 8 0 1 0 2.4-5.7" fill="none" stroke="#b8791f" stroke-width="2.4" stroke-linecap="round"/><path d="M3.1 3.3v5.2h5.2Z" fill="#c7b8e8" stroke="#b8791f" stroke-width="1.6" stroke-linejoin="round"/></svg>
         </button>
-        <button class="icon-btn big" id="pause-howto" aria-label="How to play">
+        <button class="icon-btn big" id="pause-howto" aria-label="How To Play">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.9h13.6a1.3 1.3 0 0 1 1.3 1.3v15.6a1.3 1.3 0 0 1-1.3 1.3H6a2.6 2.6 0 0 1-2.6-2.6V5.5A2.6 2.6 0 0 1 6 2.9Z" fill="#f3e4c6" stroke="#b8791f" stroke-width="1.8" stroke-linejoin="round"/><path d="M14.3 2.9v6.6l2.1-1.4 2.1 1.4V2.9Z" fill="#c7b8e8" stroke="#b8791f" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.9 14.9h9.4" stroke="#c98a4b" stroke-width="1.6" stroke-linecap="round"/><path d="M6.9 17.6h6.1" stroke="#c98a4b" stroke-width="1.6" stroke-linecap="round"/></svg>
         </button>
         <button class="icon-btn big" id="pause-settings" aria-label="Settings">
@@ -329,14 +358,14 @@
   <section class="screen overlay-screen hidden" id="screen-result">
     <div class="panel" id="result-panel">
       <div class="modal-head">
-        <h2 id="result-title">Wick lit!</h2>
+        <h2 id="result-title">Wick Lit!</h2>
         <button class="x-btn" data-close="result" aria-label="Close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
       <div id="result-dish" class="result-dish hidden"></div>
-      <div id="result-collected" class="result-collected"></div>
       <div id="result-stats" class="result-stats"></div>
+      <div id="result-collected" class="result-collected"></div>
       <div class="menu-row big-row">
         <button class="icon-btn big" id="result-settings" aria-label="Settings">
           <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="#f3e4c6" stroke="#b8791f" stroke-width="1.7"><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(45 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(90 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(135 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(180 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(225 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(270 12 12)"/><rect x="10.4" y="2.1" width="3.2" height="5" rx="1.25" transform="rotate(315 12 12)"/></g><circle cx="12" cy="12" r="6.1" fill="#f3e4c6" stroke="#b8791f" stroke-width="1.8"/><circle cx="12" cy="12" r="2.7" fill="#ffd66b" stroke="#b8791f" stroke-width="1.6"/></svg>
@@ -347,7 +376,7 @@
         <button class="icon-btn big primary" id="result-primary" aria-label="Next level">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13"/><path d="M13 6l6 6-6 6"/></svg>
         </button>
-        <button class="icon-btn big" id="result-share" aria-label="Share this result">
+        <button class="icon-btn big" id="result-share" aria-label="Share This Result">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 11.2l7-4.6M8 12.8l7 4.6" stroke="#b8791f" stroke-width="1.8" stroke-linecap="round"/><g fill="#f3e4c6" stroke="#b8791f" stroke-width="1.7"><circle cx="6" cy="12" r="2.6"/><circle cx="17.4" cy="6.2" r="2.6"/><circle cx="17.4" cy="17.8" r="2.6"/></g><circle cx="17.4" cy="6.2" r="1" fill="#ffd66b"/></svg>
         </button>
         <button class="icon-btn big" id="result-menu" aria-label="Main menu">
@@ -371,18 +400,66 @@
     </div>
   </section>
 
-  <!-- ============ WHIMSICAL KITCHEN (recipe list + how-to + cook) ============ -->
-  <section class="screen overlay-screen hidden" id="screen-recipes">
-    <div class="panel recipes-panel">
-      <div class="modal-head">
-        <h2>Whimsical Kitchen</h2>
-        <button class="x-btn" data-close="recipes" aria-label="Close">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-        </button>
+  <!-- ============ WHIMSICAL KITCHEN (its own page: recipes + ingredients) ============ -->
+  <section class="screen hidden kitchen-page" id="screen-recipes">
+    <!-- page head: home returns to the title, title rides the page top -->
+    <header class="page-head">
+      <button class="x-btn" data-close="recipes" aria-label="Back To The Title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <h2>Whimsical Kitchen</h2>
+      <span class="page-spacer" aria-hidden="true"></span>
+    </header>
+    <div class="page-body">
+      <p class="screen-sub">Pick a dish, read how the real one is made, then cook it right here at the counter.</p>
+      <div class="kitchen-tabs" role="tablist">
+        <span class="kitchen-ind" aria-hidden="true"></span>
+        <button class="kitchen-tab sel" id="ktab-recipes" type="button" role="tab" aria-selected="true">Recipes</button>
+        <button class="kitchen-tab" id="ktab-ing" type="button" role="tab" aria-selected="false">Ingredients</button>
       </div>
-      <div id="kitchen-pantry" class="kitchen-pantry"></div>
-      <div id="recipes-daily" class="recipes-daily"></div>
-      <div id="recipes-grid" class="recipes-grid"></div>
+      <!-- Recipes tab: dish list, tap one to set it at the counter -->
+      <div id="kitchen-view-recipes" class="kitchen-view">
+        <div id="recipes-daily" class="recipes-daily"></div>
+        <div id="recipe-list" class="recipe-grid"></div>
+        <!-- the counter: dish, pantry, method, then the pan itself -->
+        <div id="cook-station" class="cook-station hidden">
+          <div class="cook-head">
+            <h2 id="cook-dish" class="cook-dish"></h2>
+            <button class="cook-help" id="cook-help" type="button" aria-label="Cooking instructions" title="Cooking instructions">?</button>
+          </div>
+          <div id="cook-ings" class="cook-ings"></div>
+          <div id="cook-steps" class="cook-steps hidden">
+            <h4>How To Make It</h4>
+            <ol id="cook-steps-list"></ol>
+            <p class="cook-tip" id="cook-tip"></p>
+          </div>
+          <canvas id="cook-canvas" class="cook-canvas hidden"></canvas>
+          <div id="cook-actions" class="cook-actions">
+            <button class="btn btn-primary" id="cook-start" type="button">Start Cooking</button>
+            <button class="btn btn-soft" id="cook-abort" type="button">Skip Cooking</button>
+          </div>
+          <div id="cook-done" class="cook-done hidden">
+            <b id="cook-done-title"></b>
+            <span id="cook-done-stars" class="cook-done-stars"></span>
+            <span id="cook-done-pay" class="cook-done-pay"></span>
+            <p id="cook-done-note" class="cook-done-note"></p>
+            <div class="cook-actions">
+              <button class="btn btn-primary" id="cook-next" type="button">Cook Next Recipe</button>
+              <button class="btn btn-soft" id="cook-back" type="button">Back To Dishes</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Ingredients tab: everything banked, gather or buy -->
+      <div id="kitchen-view-ing" class="kitchen-view hidden">
+        <div id="ingredients-list" class="ingredients-list"></div>
+        <div class="menu-row">
+          <button class="btn btn-primary shop-cta" id="kitchen-shop" type="button">
+            Open The Shop
+            <small class="shop-cta-hint">Restock ingredients</small>
+          </button>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -395,15 +472,15 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
-      <p class="result-flavour">Every wick is lit. Ghee curls up on the warm tiles and lets the kitchen sleep.</p>
+      <p class="result-flavour">Every wick is lit. The little hero curls up on the warm tiles and lets the kitchen sleep.</p>
       <canvas id="ending-art" width="360" height="240"></canvas>
       <div class="menu-row">
-        <button class="btn btn-primary" id="ending-menu">Back to the title</button>
+        <button class="btn btn-primary" id="ending-menu">Back To The Title</button>
       </div>
     </div>
   </section>
 </div>
 
-<script type="module" src="./js/main.js?v=28"></script>
+<script type="module" src="./js/main.js?v=46"></script>
 </body>
 </html>

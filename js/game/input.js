@@ -26,15 +26,32 @@ WW.Input = (canvasEl) => {
   canvasEl.style.outline = 'none';
 
   // ---- keyboard: hop + pause (Ghee moves on their own) ----
+  let lastPauseSig = 0;
+  const firePause = () => {
+    /* one signal per keypress: the capture net and the bubble listener
+     * both see the same key, so collapse anything within 150ms */
+    const t = performance.now();
+    if (t - lastPauseSig < 150) return;
+    lastPauseSig = t;
+    anyEvent && anyEvent('pause');
+  };
   const handleKey = (e, canvasTargeted) => {
-    if (!enabled) return;
     const k = e.key;
+    /* Esc / P must answer even while the input is off (the pause screen
+     * itself disables gameplay keys), so the same key un-pauses too */
+    if (k === 'Escape' || k === 'p' || k === 'P') { firePause(); return; }
+    if (!enabled) return;
     if (k === ' ' || k === 'ArrowUp' || k === 'w' || k === 'W') {
       if (canvasTargeted) e.preventDefault();
       if (!keyHeld) { keyHeld = true; st.jumpHeld = true; jumpDispatch && jumpDispatch(); anyEvent && anyEvent('jump'); }
     }
-    if (k === 'Escape' || k === 'p' || k === 'P') { anyEvent && anyEvent('pause'); }
   };
+  /* capture-phase net for the pause key: it runs before anything else on
+   * the page can swallow Esc/P (browser tooling, focus layers) */
+  addEventListener('keydown', (e) => {
+    const k = e.key;
+    if (k === 'Escape' || k === 'p' || k === 'P') firePause();
+  }, true);
   /* the same handler on the window AND on the canvas: whichever surface
    * actually holds keyboard focus gets the key. The keyHeld guard makes a
    * double delivery (canvas ⊂ window bubbling) harmless. */

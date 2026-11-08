@@ -15,7 +15,7 @@ const fresh = () => ({
   settings: { music: 0.7, sfx: 0.8, mute: false, gestureHints: true, reducedMotion: false },
   character: 'ghee',
   owned: ['ghee'],                                  // spirits bought in the shop
-  story: { completed: [], sparks: {}, gems: {} },   // by level id
+  story: { completed: [], sparks: {}, gems: {}, parts: {} },   // by level id; parts = fragments read
   wallet: { coins: 0, gems: 0 },                    // earned currencies (future shop)
   tutorialDone: false,
   gestureHintDone: false,
@@ -49,6 +49,18 @@ WW.persist = {
     const f = fresh();
     cur.settings = { ...f.settings, ...cur.settings };
     cur.story = { ...f.story, ...cur.story };
+    /* story fragments: level id → the part indices already read. Rebuilt
+     * defensively so a hand-edited or older save cannot break the run. */
+    const rawParts = (cur.story.parts && typeof cur.story.parts === 'object') ? cur.story.parts : {};
+    cur.story.parts = {};
+    for (const id of Object.keys(rawParts)) {
+      if (Array.isArray(rawParts[id])) {
+        cur.story.parts[id] = rawParts[id].filter(n => Number.isInteger(n) && n >= 0);
+      }
+    }
+    if (!Array.isArray(cur.story.completed)) cur.story.completed = [];
+    if (!cur.story.sparks || typeof cur.story.sparks !== 'object') cur.story.sparks = {};
+    if (!cur.story.gems || typeof cur.story.gems !== 'object') cur.story.gems = {};
     cur.endless = { ...f.endless, ...cur.endless };
     if (!Array.isArray(cur.endless.runs)) cur.endless.runs = [];
     cur.stats = { ...f.stats, ...(cur.stats || {}) };

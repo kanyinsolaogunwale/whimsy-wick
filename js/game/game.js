@@ -25,15 +25,20 @@ WW.createGame = (canvas) => {
   let playMode = null;            // 'story' | 'endless'
   let state = null, world = null, levelIdx = 0, levelCfg = null;
   let charDef = WW.CHARACTERS.find(c => c.id === data.character) || WW.CHARACTERS[0];
+  /* reactions name whichever spirit is actually hopping, never a hard-coded one */
+  const charName = () => (WW.CHARACTERS.find(c => c.id === data.character) || WW.CHARACTERS[0]).name;
   let animT = 0, running = false, paused = false, raf = null, lastTs = 0;
   let runStats = null;            // endless: {score, sparks, time}
   let tutorial = null;            // active tutorial script
-  let tutorialForced = false;  let flash = null, flashT = 0;
+  let tutorialForced = false;  let coachRun = false;   // first-run rewind: crashes coach, never kill
+  let coachState = null;       // per-run rewind ledger (tries per obstacle)
+  let flash = null, flashT = 0;
   let collectChain = 0, collectChainT = 0;
   /* ingredient combo (Cook & Learn): quick same-kind sweeps pay extra */
   let ingCombo = 0, ingComboKind = '', ingComboT = 0;
   let factsQueue = null;            //Cook & Learn: tip toasts queued across the run
   let uiReturn = 'title';           // where howto/settings go back to
+  let charsReturn = 'title';        // where the shop goes back to (kitchen tab → the kitchen)
 
   /* -------------------------------------------------------
    *  world builders
@@ -59,14 +64,29 @@ WW.createGame = (canvas) => {
     const cfg = WW.STORY_LEVELS[idx];
     const plat = (cfg.platforms || []).map(p => ({ ...p }));
     const hazards = cfg.hazards.map(normHaz);
-    const sparks = cfg.sparks.map(x => ({ x, y: sparkY(x, plat), got: false }));
+    /* coins and ingredients never sit inside a hazard: a pickup in a flour
+     * cloud or a pin's patrol asks the player to run through the thing the
+     * level told them to avoid */
+    const sparks = cfg.sparks.map(x => {
+      const y = sparkY(x, plat);
+      return { x: WW.storyPickupX(x, hazards, y, cfg.length, 13), y, got: false };
+    });
     const gems = (cfg.gems || []).map(x => ({ x, y: gemY(x, plat), got: false, kind: 'gem' }));
     /* Cook & Learn: the level's recipe + typed ingredient pickups */
     const recipe = WW.recipeForLevel(idx);
-    const ingredients = (cfg.ingredients || []).map(it => ({ ...it, got: false }));
+    const ingredients = (cfg.ingredients || []).map(it => ({
+      ...it, got: false, x: WW.storyPickupX(it.x, hazards, it.y, cfg.length, 20),
+    }));
     world = {
       length: cfg.length,
       platforms: plat, hazards, sparks, gems, ingredients,
+      /* the story pages stand on the counter where their card will open;
+       * parts already read stay off the shelf */
+      story: (cfg.story || []).map((p, i) => ({
+        /* a page never sits on an obstacle: its x is nudged to clean counter */
+        x: WW.storyPageX(p.at, hazards, cfg.length), y: 46, i,
+        got: ((data.story.parts || {})[cfg.id] || []).includes(i),
+      })),
       goal: { x: cfg.goal.x, done: false },
       t: 0,
     };
@@ -83,6 +103,15 @@ WW.createGame = (canvas) => {
     };
     resetState();
     ui.setHUD('story', cfg.name);
+    /* story fragments: replaying a level stops only for the parts this
+     * save has not read yet, in counter order */
+    data.story.parts = data.story.parts || {};        // older saves predate fragments
+    const foundParts = data.story.parts[cfg.id] || (data.story.parts[cfg.id] = []);
+    runStats.partsTotal = (cfg.story || []).length;
+    runStats.partsFound = foundParts.length;
+    runStats.partsLeft = (cfg.story || []).map((p, i) => ({ ...p, i }))
+      .filter(p => !foundParts.includes(p.i));
+    ui.hud.parts(runStats.partsFound, runStats.partsTotal);
     ui.showNone(); ui.hud.show(true);
     ui.hud.coins(0); ui.hud.gems(0);
     ui.hud.ingredients(ingredientStrip());
@@ -98,13 +127,21 @@ WW.createGame = (canvas) => {
       }
     }
     buildFacts(cfg);
+    coachRun = tutorialForced || !data.tutorialDone;
+    coachState = { byObstacle: {} };
     maybeTutorial(cfg);
   };
 
-  /* HUD chip row: one chip per recipe ingredient (Collected 1/2 …) */
+  /* HUD chip row: one chip per recipe ingredient (Collected 1/2 …), or a
+   * single gatherer basket in endless (every kind spawns once out there) */
   const ingredientStrip = () => {
-    const recipe = runStats && runStats.recipeNeeds;
-    if (!recipe) return null;
+    if (!(runStats && runStats.ingredients)) return null;
+    if (!runStats.recipeNeeds) {
+      const total = (world && world.ingredients ? world.ingredients.length : Object.keys(WW.INGREDIENTS).length);
+      const have = Object.keys(runStats.ingredients).length;
+      return [{ k: 'basket', n: total, emoji: '\u{1F9FA}', name: 'Ingredients', have }];
+    }
+    const recipe = runStats.recipeNeeds;
     return recipe.needs.map(({ k, n }) => ({
       k, n,
       emoji: (WW.INGREDIENTS[k] || {}).emoji || '\u{1F34E}',
@@ -139,25 +176,55 @@ WW.createGame = (canvas) => {
 
   const buildEndless = () => {
     tutorial = null;
-    ui.hideTutorial();
+    ui.hideTutorial();                 // the first card only shows at the first gate
     factsQueue = null;
     const rng = WW.rng((Date.now() >>> 10) % 99991);
     const L = 26000;    const hazards = WW.generateEndless(L, rng).map(normHaz);
     const sparks = WW.generateEndlessSparks(L, rng).map(x => ({ x, y: 34 + Math.floor(Math.abs(Math.sin(x * 0.017)) * 190), got: false }));
     const gems = WW.generateEndlessGems(L, rng).map(x => ({ x, y: gemY(x, []), got: false, kind: 'gem' }));
+    /* every ingredient kind takes one ride in the endless run: all 13 kinds
+     * laid on an even ladder from the start so a full run can bank the set */
+    const kinds = Object.keys(WW.INGREDIENTS);
+    const ingFrom = 1200, ingStep = (L - ingFrom - 1100) / (kinds.length - 1);
+    const ingredients = kinds.map((k, i) => ({
+      x: Math.round(ingFrom + i * ingStep),
+      k,
+      y: 60 + Math.round(Math.abs(Math.sin((ingFrom + i * ingStep) * 0.005)) * 130),
+      got: false,
+    }));
     world = {
-      length: L, platforms: [], hazards, sparks, gems, ingredients: [],
+      length: L, platforms: [], hazards, sparks, gems, ingredients,
       goal: null, t: 0,
     };
     engine.build({ world, theme: rng() < 0.5 ? 'night' : 'flour', charDef, rows: ['window'], startX: 140 });
     applyCharTint();
-    runStats = { sparks: 0, coins: 0, gems: 0, time: 0, dist: 0, score: 0 };
+    runStats = { sparks: 0, coins: 0, gems: 0, time: 0, dist: 0, score: 0, ingredients: {} };
     resetState();
     playMode = 'endless';
     ui.setHUD('endless', 'Endless Challenge');
     ui.hud.coins(0); ui.hud.gems(0); ui.hud.score(0); ui.hud.dist(0); ui.hud.time(0);
+    ui.hud.ingredients(ingredientStrip());
     ui.showNone(); ui.hud.show(true);
     maybeHint('butter');
+    /* First-run tutorial works in Endless too: the gates hang off the
+     * freshly generated layout (first ingredient, first hazard, first
+     * coins) so each card names an action that is really up ahead. */
+    coachRun = tutorialForced || !data.tutorialDone;
+    coachState = { byObstacle: {} };
+    if (coachRun) {
+      const who = charName();
+      const hzX = (hazards[0] || { x: 700 }).x;                 // first thing to pass: the hop card
+      const ingX = (ingredients.find(i => !i.got) || { x: 1200 }).x;
+      const spX = (sparks.find(s => s.x > ingX + 220) || { x: ingX + 420 }).x;
+      startTutorial([
+        { tag: 'jump',  title: 'Hop the hazards!',  prompt: 'Tap (or Space) to hop over what lies ahead', gate: Math.max(260, hzX - 160),
+          text: `Tap to hop. Tap the screen (or press Space). ${who} can jump again mid-air to clear anything ahead.` },
+        { tag: 'ingredient', title: 'Sweep up the ingredients!', prompt: 'Run on: the ingredients wait in the pantry', gate: Math.max(hzX + 60, ingX - 140),
+          text: 'Every ingredient you sweep up waits in the pantry for the Whimsical Kitchen. Hop for the high ones!' },
+        { tag: 'spark', title: 'Grab the coins',    prompt: 'Sweep through the floating coins', gate: Math.max(ingX + 100, spX - 140),
+          text: 'Sweep through the floating coins to gather them.' },
+      ]);
+    }
   };
 
   const florless = (t, rng) => (rng() < 0.5 ? 'night' : t); /* keeps theme variety */
@@ -191,12 +258,15 @@ WW.createGame = (canvas) => {
    *  holds her in place so the run waits for the player's action.
    *  (tester feedback: no auto-run through unhinted risks, and the
    *  old "Wake up, Ghee!" card made no sense, she's already awake.) */
+  const startTutorial = (steps) => {
+    tutorial = { steps, i: 0, active: true, gateShown: new Set(), cardUp: false };
+    tutorialForced = false;
+  };
   const maybeTutorial = (cfg) => {
     tutorial = null;
     ui.hideTutorial();                 // the first card only shows at the first gate
     if (tutorialForced || (!data.tutorialDone && playMode === 'story' && levelIdx === 0)) {
-      tutorial = { steps: cfg.tutorial, i: 0, active: true, gateShown: new Set(), cardUp: false };
-      tutorialForced = false;
+      startTutorial(cfg.tutorial);
     }
   };
   /* Each tick while the tutorial runs: when Ghee arrives at the active
@@ -230,22 +300,22 @@ WW.createGame = (canvas) => {
     }
   };
 
-  const HINTS = {
+  const HINTS = (who) => ({
     foo: '',
     pin: 'Rolling pins patrol back and forth. Watch their swing, then hop at the right moment!',
-    butter: 'Butter is slippery! Ghee glides through it. Hop over what lies ahead in the slide.',
-    milk: 'Milk is even slicker than butter. Ghee zooms through, so hop early when trouble shows.',
-    jam: 'Jam is sticky! It clings and slows Ghee down.',
-    jamdrop: 'Jam is sticky! It clings and slows Ghee down.',
-    fan: 'A little fan holds Ghee to a crawl. Hop over its breeze!',
+    butter: `Butter is slippery! ${who} glides through it. Hop over what lies ahead in the slide.`,
+    milk: `Milk is even slicker than butter. ${who} zooms through, so hop early when trouble shows.`,
+    jam: 'Jam is sticky! It clings and slows the hop right down.',
+    jamdrop: 'Jam is sticky! It clings and slows the hop right down.',
+    fan: `A little fan holds ${who} to a crawl. Hop over its breeze!`,
     flour: 'Flour piles are too dusty to wade through. Hop over them.',
-  };
+  });
   const maybeHint = (kind) => {
-    if (!HINTS[kind]) return;
+    if (!HINTS(charName())[kind]) return;
     data.hintSeen = data.hintSeen || {};
     if (data.hintSeen[kind]) return;
     data.hintSeen[kind] = true; WW.persist.save();
-    if (WW.settings.gestureHints !== false) ui.showToast(HINTS[kind]);
+    if (WW.settings.gestureHints !== false) ui.showToast(HINTS(charName())[kind]);
   };
   const proximityHints = () => {
     const px = state.x;
@@ -289,6 +359,88 @@ WW.createGame = (canvas) => {
   };
   const clearKeys = () => input.setEnabled(false);
 
+  /* Story Mode pauses on each unread fragment: the frame freezes under the
+   * card, Continue hands the run straight back. The index is banked the
+   * moment it is reached, so a crash after reading keeps the part. */
+  const storyPartCheck = () => {
+    if (playMode !== 'story' || mode !== 'play' || !runStats || !runStats.partsLeft || !state) return;
+    /* never stack the fragment card on top of a teaching card; between
+     * tutorial steps the story can still pause the run */
+    if (tutorial && tutorial.active && tutorial.cardUp) return;
+    const part = runStats.partsLeft[0];
+    if (!part || state.x < part.at) return;
+    runStats.partsLeft.shift();
+    const list = data.story.parts[levelCfg.id] || (data.story.parts[levelCfg.id] = []);
+    if (!list.includes(part.i)) { list.push(part.i); list.sort((a, b) => a - b); }
+    runStats.partsFound = list.length;
+    const mark = world.story && world.story.find(m => m.i === part.i);
+    if (mark) mark.got = true;                  // the page leaves the counter
+    WW.persist.save();
+    ui.hud.parts(runStats.partsFound, runStats.partsTotal);
+    mode = 'story-part';
+    input.setEnabled(false);
+    WW.Audio.duckMusic(true);
+    WW.Audio.play('gem');
+    ui.showStoryPart({
+      level: levelCfg.name, index: part.i, total: runStats.partsTotal,
+      title: part.title, text: part.text,
+    });
+  };
+  const closeStoryPart = () => {
+    if (mode !== 'story-part') return;
+    ui.hideStoryPart();
+    mode = 'play'; paused = false;
+    input.setEnabled(true);
+    WW.Audio.duckMusic(false);
+    lastTs = performance.now();
+  };
+
+  /* First-run coaching: while the player has not learned the actions yet,
+   * a crash is not the end of the run. The run rewinds just before the
+   * obstacle that stopped it, with a reminder naming that action, so every
+   * obstacle can be retried with no rush until the hop lands right. */
+  const coachRewind = (why) => {
+    /* the coaching cap: three tries on the obstacle that keeps stopping
+     * the run, then coaching hands over, the crash goes through for real
+     * (revive offer included) and the game can always end. The tutorial
+     * is marked learned so later laps never coach again either. */
+    coachState = coachState || { byObstacle: {} };
+    const hw = (t) => ({ flour: 84, jamdrop: 40, pin: 104, fan: 60 }[t] || 46);
+    const near = (world.hazards || [])
+      .map(h => ({ h, d: Math.abs(h.x + hw(h.t) / 2 - (state.x + 20)) }))
+      .sort((a, b) => a.d - b.d)[0];
+    const stallKey = near ? 'h' + Math.round(near.h.x) : 'free' + Math.round(state.x);
+    const tried = (coachState.byObstacle[stallKey] || 0) + 1;
+    coachState.byObstacle[stallKey] = tried;
+    if (!near || tried > 3) {
+      coachRun = false;
+      if (tutorial && tutorial.active) { tutorial.active = false; ui.hideTutorial(); }
+      data.tutorialDone = true; WW.persist.save();
+      setCrash(why);
+      ui.showToast(`Three tries on this one. ${charName()} is playing for real now, luck!`, 3000);
+      return false;
+    }
+    const at = near ? Math.max(30, near.h.x - 440) : Math.max(30, state.x - 300);
+    engine.burst(state.x + 20, state.y + 20, 'crash');
+    WW.Audio.play('slip');
+    /* back up and retry: feet reset on the counter, no penalty, no rush */
+    state.x = at;
+    state.y = G; state.vx = 0; state.vy = 0;
+    state.onGround = true; state.jumping = false; state.jumpsUsed = 0;
+    state.hold = false; state.coyote = 0; state.buffer = 0;
+    state.slipTime = 0; state.surface = 'dry'; state.wind = 0;
+    state.runPhase = 0; state.peakY = G;
+    for (const h of world.hazards) if (h.x >= at && h.x <= at + 500) h.hit = false;
+    engine.setPose(null);
+    engine.burst(at + 20, G + 4, 'puff');
+    const tip = HINTS(charName())[why] || '';
+    const left = 3 - tried;                    // the cap is public: they count down
+    const triesNote = left > 0 ? ` (${left} try${left === 1 ? '' : 'ies'} left on this one)` : '';
+    ui.showToast(tip
+      ? `${tip} ${charName()} is back a step, try it again!${triesNote}`
+      : `${charName()} is okay! Back up a step and try that action again.${triesNote}`, 3000);
+  };
+
   /* crash: freeze the frame, then either offer a gem revive or settle the
    * run as a normal loss */
   const setCrash = (why) => {
@@ -316,9 +468,9 @@ WW.createGame = (canvas) => {
     data.stats.coinsEarned += earned;
     data.stats.gemsEarned += gems;
     data.stats.runs += 1;
-    /* Cook & Learn: everything gathered on a story run waits in the pantry
-     * for the Kitchen, win or lose */
-    if (playMode === 'story' && s.ingredients) {
+    /* Cook & Learn: everything gathered on a run waits in the pantry for
+     * the Kitchen, win or lose, story or endless */
+    if (s.ingredients) {
       data.pantry = data.pantry || {};
       for (const [k, n] of Object.entries(s.ingredients)) {
         data.pantry[k] = (data.pantry[k] || 0) + n;
@@ -367,20 +519,27 @@ WW.createGame = (canvas) => {
     for (const n of recipe.needs) t[n.k] = Math.min(data.pantry[n.k] || 0, n.n);
     return t;
   };
+  /* Cooking happens on the kitchen page itself: this lays the dish out at the
+   * counter with its method, and the player starts when they are ready. */
+  let prepRecipe = null;
   const beginKitchenCooking = (recipe) => {
-    mode = 'cooking';
+    prepRecipe = recipe;
+    mode = 'recipes';
     ui.showCooking(recipe, pantryStrip(recipe));
-    WW.Audio.duckMusic(false);
+  };
+  const startKitchenCooking = () => {
+    const recipe = prepRecipe;
+    if (!recipe || mode !== 'recipes') return;
     const fullIngredients = recipe.needs.every(n => (data.pantry[n.k] || 0) >= n.n);
+    mode = 'cooking';
+    ui.cookStartUi();
+    WW.Audio.duckMusic(false);
     WW.CookDom.begin({
       recipe,
       canvas: $('cook-canvas'),
       gold: data.kitchen.includes('pan'),
       gathered: pantryGathered(recipe),
-      onDone: (res) => {
-        $('cook-overlay').classList.add('hidden');
-        settleKitchenCook(recipe, { ...res, fullIngredients });
-      },
+      onDone: (res) => settleKitchenCook(recipe, { ...res, fullIngredients }),
     });
   };
 
@@ -416,14 +575,13 @@ WW.createGame = (canvas) => {
     WW.persist.save();
     ui.renderRecipes(data);
     mode = 'recipes';
-    WW.Audio.duckMusic(true);
-    ui.showResult('kitchen-done', {
-      dish: { emoji: recipe.emoji, name: recipe.name, stars: res.stars, missing: res.missing },
-      tool: unlockedTool,
-      daily: dailyCooked,
-      coins: dishCoins,
-      gems: paidGems,
-      flavour: 'Fresh ' + recipe.name.toLowerCase() + ', made step by real step.',
+    WW.Audio.duckMusic(false);
+    WW.Audio.play('win');
+    /* the plate lands on the same counter: no modal, just the dish and the
+     * two ways on (next recipe, or back to the shelf) */
+    ui.showCooked({
+      recipe, stars: res.stars, coins: dishCoins, gems: paidGems,
+      tool: unlockedTool, daily: dailyCooked, missing: res.missing,
     });
   };
 
@@ -463,7 +621,7 @@ WW.createGame = (canvas) => {
       }
     }
     settleRun(rewardCoins + dishCoins, rewardGems + dishGems);
-    ui.renderStory(WW.STORY_LEVELS, data.story.completed, data.story.sparks);
+    ui.renderStory(WW.STORY_LEVELS, data.story.completed, data.story.sparks, data.story.parts);
     mode = 'result';
     WW.Audio.duckMusic(true);
     ui.hud.show(false);
@@ -509,7 +667,7 @@ WW.createGame = (canvas) => {
       return;
     }
     reviveOffer = { why, cost, timeLeft: 5, timer: null };
-    ui.showRevive({ cost, gems: data.wallet.gems, shield: 2.5 });
+    ui.showRevive({ cost, gems: data.wallet.gems, shield: 2.5, who: charName() });
     ui.reviveCountdown(5);
     reviveOffer.timer = setInterval(() => {
       reviveOffer.timeLeft -= 1;
@@ -574,17 +732,18 @@ WW.createGame = (canvas) => {
     setTimeout(() => {
       mode = 'result';
       ui.hud.show(false);
+      const who = charName();
       const flavour = {
-        flour: 'A pillow-soft mountain of flour. Ghee sneezed sparks everywhere! Hop over it next time.',
-        pin: 'A rolling pin rolled right into Ghee. They roll to a rhythm, so watch the swing and hop at the right moment.',
-        butter: 'The butter took Ghee for a skate. Ghee glides through it, so watch what lies ahead and hop in time.',
-        milk: 'A long slide in the milk. Ghee zooms through it, so hop early when trouble shows.',
-        jamdrop: 'Stuck in the jam. It is sticky in there! Ghee slows right down inside, so keep the hops coming.',
-        fan: 'The breeze held Ghee to a crawl. Hop over the fan next time!',
-      }[why] || 'Ghee got a little lost.';
+        flour: `A pillow-soft mountain of flour. ${who} sneezed sparks everywhere! Hop over it next time.`,
+        pin: `A rolling pin rolled right into ${who}. They roll to a rhythm, so watch the swing and hop at the right moment.`,
+        butter: `The butter took ${who} for a skate. It glides through butter, so watch what lies ahead and hop in time.`,
+        milk: `A long slide in the milk. ${who} zooms through it, so hop early when trouble shows.`,
+        jamdrop: `Stuck in the jam. It is sticky in there! ${who} slows right down inside, so keep the hops coming.`,
+        fan: `The breeze held ${who} to a crawl. Hop over the fan next time!`,
+      }[why] || `${who} got a little lost.`;
       settleRun();
       ui.showResult('story-fail', {
-        flavour, coins: runStats ? runStats.coins + runStats.sparks : 0, balance: data.wallet.coins,
+        who, flavour, coins: runStats ? runStats.coins + runStats.sparks : 0, balance: data.wallet.coins,
         gems: runStats ? runStats.gems || 0 : 0, gemBalance: data.wallet.gems,
         collected: runStats ? gatheredStrip() : [],
       });
@@ -618,7 +777,10 @@ WW.createGame = (canvas) => {
           score: s.score, best, dist: s.dist, newBest,
           bestDist: data.endless.bestDistance,
           coins: s.coins + s.sparks,
+          gems: s.gems || 0,
           balance: data.wallet.coins,
+          who: charName(),
+          collected: gatheredStrip(),
           timeStr: fmtTime(s.time),
         });
       }, 1000);
@@ -693,6 +855,7 @@ WW.createGame = (canvas) => {
           case 'windTick': WW.Audio.play('wind'); break;
           case 'crash': {
             if (mode !== 'play') break;
+            if (coachRun) { coachRewind(e.why); break; }   // first run: rewind, not a loss
             setCrash(e.why);
             break;
           }
@@ -709,6 +872,7 @@ WW.createGame = (canvas) => {
         }
         if (e.k !== 'moved') proximityHints();
       }
+      storyPartCheck();
 
       if (collectChainT > 0) {
         collectChainT -= dtReal;
@@ -745,6 +909,13 @@ WW.createGame = (canvas) => {
     if (WW.Physics.tryJump(state)) stepTutorial('jump');
   });
   input.onAny((what) => {
+    /* the pause key both pauses and un-pauses: the pause screen disables
+     * gameplay input, so Esc/P come through and toggle from there */
+    if (what === 'pause') {
+      if (mode === 'play') pause(true);
+      else if (mode === 'pause') resume();
+      return;
+    }
     if (what === 'blur' && mode === 'play') pause(false);
     if (what === 'focus') {
       if (!WW.Audio.running && mode === 'play') WW.Audio.musicOn();
@@ -753,17 +924,39 @@ WW.createGame = (canvas) => {
 
   /* Which screen each modal should return to when its X is pressed. */
   const modalOwner = {
-    chars: () => 'title', howto: () => uiReturn, settings: () => uiReturn,
+    chars: () => charsReturn, howto: () => uiReturn, settings: () => uiReturn,
     signin: () => 'title', story: () => 'title', records: () => 'title', result: () => 'title',
     recipes: () => 'title',
   };
 
   const actions = {
-    'open-story': () => { ui.renderStory(WW.STORY_LEVELS, data.story.completed, data.story.sparks); ui.show('story'); mode = 'story-select'; },
-    'select-story': (i) => { ui.selectStory(i); mode = 'story-select'; },
+    'open-story': () => { ui.renderStory(WW.STORY_LEVELS, data.story.completed, data.story.sparks, data.story.parts); ui.show('story'); mode = 'story-select'; },
+    /* the reread page: every fragment found so far, back to the map */
+    'open-fragments': () => {
+      if (mode !== 'story-select') return;
+      ui.renderFragments(WW.STORY_LEVELS, data.story.parts);
+      ui.show('fragments');
+      mode = 'fragments';
+    },
+    'close-fragments': () => {
+      if (mode !== 'fragments') return;
+      ui.renderStory(WW.STORY_LEVELS, data.story.completed, data.story.sparks, data.story.parts);
+      ui.show('story');
+      mode = 'story-select';
+    },
     'start-endless': () => { playMode = 'endless'; buildEndless(); beginPlay(); },
     'play-level': (i) => { playMode = 'story'; buildStory(i); beginPlay(); },
-    'open-chars': () => { ui.renderChars(WW.CHARACTERS, data.character, shopInfo()); ui.renderShelf(data); ui.show('chars'); ui.setShopTab(false); ui.snapShopInd(); mode = 'chars'; },
+    'open-chars': () => { charsReturn = 'title'; ui.renderChars(WW.CHARACTERS, data.character, shopInfo()); ui.renderShelf(data); ui.show('chars'); ui.setShopTab(false); ui.snapShopInd(); mode = 'chars'; },
+    /* the Kitchen's Ingredients tab reaches the same shop; its X returns
+     * there instead of the title */
+    'open-kitchen-shop': () => {
+      if (mode !== 'recipes') return;
+      charsReturn = 'recipes';
+      ui.renderChars(WW.CHARACTERS, data.character, shopInfo());
+      ui.renderShelf(data);
+      ui.show('chars'); ui.setShopTab(true); ui.snapShopInd();
+      mode = 'chars';
+    },
     /* shop tab 2: the Kitchen Shelf */
     'open-shelf': () => ui.renderShelf(data),
     /* each spirit card carries its own Play / Buy button (no confirm row) */
@@ -784,7 +977,16 @@ WW.createGame = (canvas) => {
       if (data.owned.includes(id)) { actions['char-play'](id); return; }
       /* coins first, gems top up any gap; unlock + equip, stay in the shop */
       const pay = WW.payPlan(def.price, data.wallet.coins, data.wallet.gems);
-      if (!pay.ok) return;                                  // button is disabled anyway
+      if (!pay.ok) {
+        /* a tapped Buy is always answered: say what is still missing, in
+         * the currency the wallet is actually short of */
+        const gemsShort = Math.ceil(pay.short / WW.GEM_VALUE);
+        /* the wallet chip that is short nudges too: the toast can be missed */
+        if (data.wallet.coins < def.price) ui.flashWallet('coins');
+        if (data.wallet.gems > 0 && data.wallet.gems < gemsShort) ui.flashWallet('gems');
+        ui.showToast(`Not enough for ${def.name} yet: ${pay.short} more coins, or ${gemsShort} gems.`);
+        return;
+      }
       data.wallet.coins -= pay.coins;
       data.wallet.gems -= pay.gems;
       data.owned.push(id);
@@ -810,12 +1012,51 @@ WW.createGame = (canvas) => {
     },
     'shelf-buy': (id) => {
       const item = WW.kitchenItem(id);
-      if (!item || data.kitchen.includes(id)) return;
+      if (!item) return;
+      /* ingredient restocks repeat: pay, bank one more in the pantry,
+       * stay in the shop so a dish can be topped up item after item */
+      if (item.ing) {
+        const def = WW.INGREDIENTS[item.ing] || {};
+        if (item.coins) {
+          if (data.wallet.coins < item.coins) {
+            ui.flashWallet('coins');
+            ui.showToast(`Not enough coins for ${item.name}: ${item.coins - data.wallet.coins} more needed.`);
+            return;
+          }
+          data.wallet.coins -= item.coins;
+        } else if (item.gems) {
+          if (data.wallet.gems < item.gems) {
+            ui.flashWallet('gems');
+            ui.showToast(`Not enough gems for ${item.name}: ${item.gems - data.wallet.gems} more needed.`);
+            return;
+          }
+          data.wallet.gems -= item.gems;
+        }
+        data.pantry[item.ing] = (data.pantry[item.ing] || 0) + 1;
+        WW.persist.save();
+        WW.Audio.play('collect');
+        ui.renderChars(WW.CHARACTERS, data.character, shopInfo());
+        ui.renderShelf(data);
+        /* bought from the Kitchen's own shop: the pantry counts behind it
+         * refresh on the spot, not when the X is finally pressed */
+        if (charsReturn === 'recipes') ui.renderPantry(data);
+        ui.showToast(`One ${def.name} banked in the pantry!`);
+        return;
+      }
+      if (data.kitchen.includes(id)) return;
       if (item.coins) {
-        if (data.wallet.coins < item.coins) { ui.showToast('Not banked enough yet, coins first!'); return; }
+        if (data.wallet.coins < item.coins) {
+          ui.flashWallet('coins');
+          ui.showToast(`Not enough coins for ${item.name}: ${item.coins - data.wallet.coins} more needed.`);
+          return;
+        }
         data.wallet.coins -= item.coins;
       } else if (item.gems) {
-        if (data.wallet.gems < item.gems) { ui.showToast('Not banked enough yet, gems needed!'); return; }
+        if (data.wallet.gems < item.gems) {
+          ui.flashWallet('gems');
+          ui.showToast(`Not enough gems for ${item.name}: ${item.gems - data.wallet.gems} more needed.`);
+          return;
+        }
         data.wallet.gems -= item.gems;
       }
       data.kitchen.push(id);
@@ -823,14 +1064,39 @@ WW.createGame = (canvas) => {
       WW.Audio.play('win');
       ui.renderChars(WW.CHARACTERS, data.character, shopInfo());
       ui.renderShelf(data);
+      /* a new tool can unlock the next dish: keep the kitchen page live too */
+      if (charsReturn === 'recipes') ui.renderRecipes(data);
       ui.showToast(item.name + ' is yours!');
     },
     'cook-abort': () => {
-      if (mode !== 'cooking') return;
-      WW.CookDom.abort();
-      $('cook-overlay').classList.add('hidden');
+      if (mode === 'cooking') WW.CookDom.abort();     // mid-cook: drop the pan
+      else if (mode !== 'recipes') return;
+      prepRecipe = null;
       mode = 'recipes';
-      ui.show('recipes');
+      ui.renderRecipes(data);
+      WW.Audio.duckMusic(false);
+    },
+    /* the counter: read first, then start when ready */
+    'kitchen-cook-start': () => startKitchenCooking(),
+    'kitchen-cook-next': () => {
+      if (mode !== 'recipes') return;
+      const from = prepRecipe ? WW.RECIPES.indexOf(prepRecipe) : -1;
+      const next = WW.RECIPES.slice(from + 1).find((r) => {
+        const t = WW.toolNeeded(r);
+        return !t || data.tools.includes(t.id);
+      });
+      if (!next) {
+        prepRecipe = null;
+        ui.renderRecipes(data);
+        ui.showToast('Every dish is cooked. The kitchen is very proud!');
+        return;
+      }
+      beginKitchenCooking(next);
+    },
+    'kitchen-back-dishes': () => {
+      if (mode !== 'recipes') return;
+      prepRecipe = null;
+      ui.renderRecipes(data);
     },
     'open-howto-title': () => { uiReturn = 'title'; ui.show('howto'); mode = 'howto'; },
     'open-howto-pause': () => { uiReturn = 'pause'; ui.show('howto'); mode = 'howto'; },
@@ -839,16 +1105,19 @@ WW.createGame = (canvas) => {
     'open-settings-result': () => { uiReturn = 'result'; ui.renderSettings(WW.settings); ui.show('settings'); mode = 'settings'; },
     'signin-go': () => { WW.StartNG.signIn(); },
     'ui-close': (target) => {
-      /* X button / backdrop click: return to wherever the modal was opened
-       * from. Closing the pause menu itself means "carry on playing". */
+      /* X/Back button / backdrop click: return to wherever the modal was
+       * opened from. Closing the pause menu itself means "carry on playing". */
       if (target === 'pause') { if (mode === 'pause') resume(); return; }
       const back = (target === 'pause')
         ? 'pause'
         : (target === 'result') ? 'title'
         : (target === 'ending') ? 'title'
         : (modalOwner[target] ? modalOwner[target]() : 'title');
-      if (back === 'pause' && mode !== 'pause') { ui.show('pause'); return; }  // reopening pause: state intact
+      /* reopening pause: state intact, and the mode is pause again so
+       * later Esc presses still toggle the pause screen */
+      if (back === 'pause' && mode !== 'pause') { mode = 'pause'; ui.show('pause'); return; }
       if (back === 'result') mode = 'result';
+      if (back === 'recipes') { mode = 'recipes'; ui.renderRecipes(data); }   /* ingredient buys changed the pantry counts */
       if (back === 'title' || back === 'ending') mode = (back === 'ending') ? 'ending' : 'title';
       if (target === 'settings') WW.persist.save();
       ui.show(back);
@@ -899,6 +1168,7 @@ WW.createGame = (canvas) => {
       ui.startHero();
     },
     'pause': () => { if (mode === 'play') pause(true); },
+    'story-part-continue': () => closeStoryPart(),
     'result-primary': () => {
       if (playMode === 'story') {
         if (levelIdx === WW.STORY_LEVELS.length - 1) {
@@ -953,12 +1223,36 @@ WW.createGame = (canvas) => {
   /* first tap or key anywhere (home included) wakes audio and starts the
    * music, browsers block sound until the player interacts */
   const wakeAudio = () => { WW.Audio.unlock(); if (!WW.Audio.running) WW.Audio.musicOn(); };
+  /* Escape is the desktop back gesture: while a modal or overlay screen
+   * is up it acts as that screen's Back button (never on the title or a
+   * live run, where the pause key already owns Esc). */
+  const ESC_CLOSE = {
+    'story-select': 'story', chars: 'chars', howto: 'howto', records: 'records',
+    settings: 'settings', recipes: 'recipes', result: 'result', ending: 'ending',
+  };
   addEventListener('keydown', (e) => {
     wakeAudio();
-    if ((e.key === 'Escape' || e.key === 'p' || e.key === 'P') && (mode === 'play' || mode === 'pause')) {
-      mode === 'play' ? pause(true) : resume();
+    /* pause keys are wired in input.js (capture net → onAny 'pause');
+     * Esc here closes the screen stack surfaces and aborts the cooking
+     * mini-game, another surface */
+    if (e.key !== 'Escape') return;
+    if (mode === 'cooking') { actions['cook-abort'](); return; }
+    if (mode === 'play' || mode === 'pause') return;
+    if (mode === 'story-part') { actions['story-part-continue'](); return; }
+    if (mode === 'fragments') { actions['close-fragments'](); return; }
+    /* the share destination list floats over a result: it closes first */
+    const share = $('screen-share');
+    if (mode === 'result' && share && !share.classList.contains('hidden')) {
+      share.classList.add('hidden');
+      return;
     }
-    if (e.key === 'Escape' && mode === 'cooking') actions['cook-abort']();
+    const target = ESC_CLOSE[mode];
+    if (target) actions['ui-close'](target);
+  }, { capture: true });
+  /* the fragment card reads with the same key as the hop: Continue */
+  addEventListener('keydown', (e) => {
+    if (mode !== 'story-part') return;
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); actions['story-part-continue'](); }
   }, { capture: true });
   addEventListener('pointerdown', wakeAudio, { capture: true });
 

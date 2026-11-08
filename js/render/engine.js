@@ -124,7 +124,7 @@ WW.Engine = (canvas) => {
   };
 
   /** Node refs we re-position per frame (moving hazards etc.). */
-  let pins = [], fans = [], sparkPairs = [], gemPairs = [], ingPairs = [];
+  let pins = [], fans = [], sparkPairs = [], gemPairs = [], ingPairs = [], storyPairs = [];
   let goalFlame = null, goalBody = null, charHolder = null, charDef = null;
   let charMesh = null, charTex = null, worldRef = null, windStreaks = [];
   /* per-spirit move FX state: smoothed flip angle, facing, trail timers,
@@ -147,7 +147,7 @@ WW.Engine = (canvas) => {
     for (const g of [gFar, gMid, gDeco, gWorld]) {
       while (g.children.length) g.remove(g.children[0]);
     }
-    pins = []; fans = []; sparkPairs = []; gemPairs = []; ingPairs = []; windStreaks = [];
+    pins = []; fans = []; sparkPairs = []; gemPairs = []; ingPairs = []; storyPairs = []; windStreaks = [];
     PARTS.forEach(p => p.m.material.dispose()); PARTS.length = 0;
     goalFlame = goalBody = charHolder = null;
     worldRef = cfg.world; charDef = cfg.charDef;
@@ -240,6 +240,10 @@ WW.Engine = (canvas) => {
     /* recipe ingredients (Cook & Learn), counter food art per kind */
     for (const g of (cfg.world.ingredients || [])) {
       ingPairs.push({ g, m: sprite(WW.ingTex(g.k), 34, 34, g.x, G + g.y, 0.62) });
+    }
+    /* story parts: a visible page on the counter, so the pause is expected */
+    for (const p of (cfg.world.story || [])) {
+      storyPairs.push({ p, m: sprite(WW.tex('co-story', 46, 52, () => {}), 34, 38, p.x, G + (p.y || 46), 0.65) });
     }
 
     /* goal lantern + flame (story only, endless runs have none) */
@@ -397,6 +401,12 @@ WW.Engine = (canvas) => {
       if (g.got) { m.visible = false; continue; }
       m.rotation.z = Math.sin(now * 1.7 + g.x * 0.011) * 0.16;
       m.position.y = G + g.y + Math.sin(now * 2.6 + g.x * 0.011) * 5;
+    }
+    /* story pages: a slow, page-like sway so they read as something to read */
+    for (const { p, m } of storyPairs) {
+      if (p.got) { m.visible = false; continue; }
+      m.rotation.z = Math.sin(now * 1.9 + p.x * 0.011) * 0.13;
+      m.position.y = G + (p.y || 46) + Math.sin(now * 2.3 + p.x * 0.011) * 5;
     }
     if (goalFlame && goalFlame.visible) {
       const pulse = WW.settings && WW.settings.reducedMotion ? 1 : 0.9 + Math.sin(now * 9) * 0.12;

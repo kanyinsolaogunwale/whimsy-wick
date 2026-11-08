@@ -105,7 +105,9 @@ WW.INGREDIENTS = {
       c.fillStyle = '#e0563c'; c.beginPath(); c.arc(20, 23, 12, 0, 7); c.fill();
       c.strokeStyle = '#b23a24'; c.lineWidth = 2; c.stroke();
       c.fillStyle = '#5fae8d'; c.fillRect(18, 6, 4, 6);                    // stem
-      c.fillStyle = '#a8dcc3'; c.ellipse(20, 11, 8, 3, 0, 0, 7); c.fill(); // leaf pair
+      /* beginPath first: without it the leaf ellipse rides on the still-open
+       * body arc and its fill repainted the whole tomato mint */
+      c.fillStyle = '#a8dcc3'; c.beginPath(); c.ellipse(20, 11, 8, 3, 0, 0, 7); c.fill(); // leaf pair
       c.fillStyle = 'rgba(255,255,255,.5)'; c.beginPath(); c.ellipse(15, 18, 3, 4, -0.6, 0, 7); c.fill();
     },
   },
@@ -178,7 +180,7 @@ WW.RECIPES = [
       'Stack them up and eat warm with butter or honey.',
     ],
     fact: 'Let the batter rest 10 minutes before it hits the pan. The flour drinks the milk and the pancakes rise fluffier.',
-    tool: { id: 'pan', name: 'Ghee\u2019s trusty pan', emoji: '\u{1F373}' },
+    tool: { id: 'pan', name: 'Trusty pan', emoji: '\u{1F373}' },
     cookSteps: [
       { kind: 'mix',  label: 'Mix the batter',            ing: 'flour', tip: 'TAP to stir it round!' },
       { kind: 'pour', label: 'Pour into the warm pan',    ing: 'milk',  tip: 'HOLD to pour, release in the gold band!' },
@@ -302,18 +304,24 @@ WW.dishScore = ({ grades = [], missing = 0 }) => {
 };
 
 /* ---------------------------------------------------------------
- *  Ghee's Kitchen Shelf, buyable with banked coins/gems.
- *   pantry : every story run starts with its first ingredient banked
- *   pan    : golden pan in the Cook-Along
- *   jar    : sprinkle FX in the Cook-Along
+ *  Kitchen Shelf, buyable with banked coins.
+ *   ing-*  : every counter ingredient as a repeatable restock, so a
+ *            dish one egg short can be topped up in coins instead
+ *            of another lap on the counter
  * --------------------------------------------------------------- */
+const ING_PRICES = {
+  flour: 40, egg: 40, milk: 40, sugar: 45,
+  butter: 55, salt: 55, nutmeg: 65, rice: 65,
+  tomato: 60, pepper: 60, onion: 60, oil: 65, beans: 70,
+};
+const ING_USES = {};
+for (const r of WW.RECIPES) for (const n of r.needs) ING_USES[n.k] = (ING_USES[n.k] || 0) + 1;
 WW.KITCHEN_ITEMS = [
-  { id: 'pantry', name: 'Starter Pantry', emoji: '\u{1F9C5}', coins: 250, gems: 0,
-    blurb: 'Every story run starts with its first ingredient already gathered.' },
-  { id: 'pan', name: 'Golden Pan', emoji: '\u{1F31F}', coins: 0, gems: 4,
-    blurb: 'A gilded pan for the Cook-Along. Pure sparkle, zero effect on taste.' },
-  { id: 'jar', name: 'Sprinkle Jar', emoji: '\u{2728}', coins: 0, gems: 2,
-    blurb: 'Extra confetti when a dish comes out right. Cooking is a party.' },
+  ...Object.entries(WW.INGREDIENTS).map(([k, def]) => ({
+    id: 'ing-' + k, ing: k, name: def.name, emoji: def.emoji,
+    coins: ING_PRICES[k] || 60, gems: 0,
+    blurb: `One more for the pantry. Used in ${ING_USES[k] || 1} dish${(ING_USES[k] || 1) > 1 ? 'es' : ''}.`,
+  })),
 ];
 WW.kitchenItem = (id) => WW.KITCHEN_ITEMS.find(i => i.id === id) || null;
 })();

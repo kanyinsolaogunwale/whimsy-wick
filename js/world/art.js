@@ -768,6 +768,22 @@ WW.tex('co-gem', 40, 40, (c) => {
   c.beginPath(); c.ellipse(15, 22, 4, 2.4, .5, 0, 7); c.fill();
 });
 
+/** Story part pickup: a little glowing page, the marker players learn to
+ * watch for along the counter. Its shape matches the story card's kicker. */
+WW.tex('co-story', 46, 52, (c) => {
+  c.fillStyle = '#fffaf0';
+  rr(c, 6, 6, 32, 40, 6); c.fill();
+  c.strokeStyle = '#b8791f'; c.lineWidth = 2.6; rr(c, 6, 6, 32, 40, 6); c.stroke();
+  c.fillStyle = '#e8dcf7';
+  c.beginPath(); c.moveTo(38, 6); c.lineTo(38, 18); c.lineTo(26, 18); c.closePath(); c.fill();
+  c.fillStyle = '#c98a4b';
+  rr(c, 12, 24, 20, 2.4, 1.2); c.fill();
+  rr(c, 12, 30, 15, 2.4, 1.2); c.fill();
+  rr(c, 12, 36, 18, 2.4, 1.2); c.fill();
+  c.fillStyle = '#ffd66b';
+  c.beginPath(); c.arc(22, 12, 3.6, 0, 7); c.fill();
+});
+
 WW.tex('goal-lantern', 92, 130, (c) => {
   c.fillStyle = '#8f74c9'; rr(c, 30, 0, 32, 26, 8); c.fill();
   c.strokeStyle = '#6c55a6'; c.lineWidth = 2.4; rr(c, 30, 0, 32, 26, 8); c.stroke();
