@@ -9,7 +9,7 @@ window.THREE = THREE;
 
 /* ?v=17 cache-bust: the browser must re-fetch the edited modules. */
 import './base/core.js?v=17';
-import './world/art.js?v=18';
+import './world/art.js?v=19';
 import './characters/define.js?v=17';
 import './world/physics.js?v=17';
 import './levels/story.js?v=20';

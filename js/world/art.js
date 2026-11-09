@@ -614,6 +614,30 @@ WW.flipAngle = (ch, vy, jumps, dir) => {
 const HZ = 'rgba(78, 50, 28, .95)';
 const HZW = 3.6;
 
+/* Danger ink. The two hazards that crash Ghee on contact (the flour pile and
+ * the rolling pin) carry red caution marks, because their soft shapes read as
+ * scenery or as something to hop onto. Nothing else in the kitchen is red, so
+ * red here only ever means one thing: touch it and the run ends. */
+const DR = 'rgba(150, 24, 20, .96)';
+const DR_FILL = '#cf3227';
+const DR_LIGHT = '#ffe7e0';
+
+/** Diagonal caution stripes clipped to a rounded rect: the universal tag for
+ *  a thing that must not be touched. */
+const caution = (c, x, y, w, h, r = 5, gap = 9) => {
+  c.save();
+  rr(c, x, y, w, h, r); c.clip();
+  c.fillStyle = DR_LIGHT; c.fillRect(x, y, w, h);
+  c.fillStyle = DR_FILL;
+  for (let i = -h; i < w + h; i += gap) {
+    c.beginPath();
+    c.moveTo(x + i, y + h); c.lineTo(x + i + gap * 0.5, y + h);
+    c.lineTo(x + i + gap * 0.5 + h, y); c.lineTo(x + i + h, y);
+    c.closePath(); c.fill();
+  }
+  c.restore();
+};
+
 WW.tex('hz-flour', 96, 40, (c) => {
   const puff = () => {
     c.beginPath();
@@ -622,7 +646,7 @@ WW.tex('hz-flour', 96, 40, (c) => {
     }
   };
   // outline pass: stroke the whole silhouette, then fill over the inner lines
-  c.strokeStyle = HZ; c.lineWidth = HZW * 1.6; c.lineJoin = 'round';
+  c.strokeStyle = DR; c.lineWidth = HZW * 1.6; c.lineJoin = 'round';
   puff(); c.stroke();
   c.fillStyle = '#ffffff'; puff(); c.fill();
   // shading so the pile has volume against the cream counter
@@ -632,22 +656,28 @@ WW.tex('hz-flour', 96, 40, (c) => {
   c.beginPath(); c.ellipse(70, 21, 10, 5, 0, 0, 7); c.fill();
   c.beginPath(); c.ellipse(30, 22, 8, 4, 0, 0, 7); c.fill();
   // drifting specks
-  c.fillStyle = HZ;
+  c.fillStyle = DR;
   for (const [x, y] of [[10, 9], [86, 7], [80, 3]]) { c.beginPath(); c.arc(x, y, 1.8, 0, 7); c.fill(); }
+  // caution band across the foot of the pile: a heap of flour is a wall, not
+  // a low step Ghee can climb
+  caution(c, 18, 26, 60, 9, 4.5, 8);
+  c.strokeStyle = DR; c.lineWidth = 2.2; rr(c, 18, 26, 60, 9, 4.5); c.stroke();
 });
 
 WW.tex('hz-pin', 130, 62, (c) => {
   c.lineJoin = 'round';
-  c.fillStyle = '#e39a4f'; rr(c, 14, 18, 100, 28, 14); c.fill();
-  c.strokeStyle = HZ; c.lineWidth = HZW; rr(c, 14, 18, 100, 28, 14); c.stroke();
-  c.fillStyle = '#f2c48b'; rr(c, 22, 22, 84, 8, 4); c.fill();
+  // roller in danger red, never platform wood: a pin can't be landed on
+  c.fillStyle = DR_FILL; rr(c, 14, 18, 100, 28, 14); c.fill();
+  c.fillStyle = '#f4736a'; rr(c, 22, 22, 84, 7, 4); c.fill();
+  caution(c, 44, 21, 42, 22, 5, 9);
+  c.strokeStyle = DR; c.lineWidth = HZW; rr(c, 14, 18, 100, 28, 14); c.stroke();
   c.fillStyle = '#7a4a22';
   rr(c, 0, 24, 20, 16, 8); c.fill();
-  c.strokeStyle = HZ; c.lineWidth = HZW * 0.8; rr(c, 0, 24, 20, 16, 8); c.stroke();
+  c.strokeStyle = DR; c.lineWidth = HZW * 0.8; rr(c, 0, 24, 20, 16, 8); c.stroke();
   c.fillStyle = '#7a4a22';
   rr(c, 108, 24, 20, 16, 8); c.fill();
-  c.strokeStyle = HZ; rr(c, 108, 24, 20, 16, 8); c.stroke();
-  c.strokeStyle = 'rgba(122,74,34,.75)'; c.lineWidth = 2.4;
+  c.strokeStyle = DR; rr(c, 108, 24, 20, 16, 8); c.stroke();
+  c.strokeStyle = 'rgba(255,231,224,.7)'; c.lineWidth = 2.4;
   for (const x of [40, 62, 84]) { c.beginPath(); c.moveTo(x, 21); c.lineTo(x, 43); c.stroke(); }
 });
 
@@ -732,6 +762,33 @@ WW.tex('fx-chevron', 32, 32, (c) => {
 WW.tex('hz-shadow', 100, 20, (c) => {
   c.fillStyle = 'rgba(78,50,28,.28)';
   c.beginPath(); c.ellipse(50, 10, 48, 8, 0, 0, 7); c.fill();
+});
+
+/** Ground warning laid under a deadly hazard: a dashed red edge with up
+ *  chevrons, so the danger has a visible footprint on the counter. */
+WW.tex('hz-danger-line', 120, 18, (c) => {
+  c.strokeStyle = DR; c.lineWidth = 3.4; c.lineCap = 'round';
+  c.setLineDash([9, 7]);
+  c.beginPath(); c.moveTo(4, 14.5); c.lineTo(116, 14.5); c.stroke();
+  c.setLineDash([]);
+  c.fillStyle = DR;
+  for (const x of [18, 60, 102]) {
+    c.beginPath(); c.moveTo(x, 9.5); c.lineTo(x + 6, 2.5); c.lineTo(x + 12, 9.5);
+    c.closePath(); c.fill();
+  }
+});
+
+/** Floating alert badge: a red warning triangle over a hazard that crashes
+ *  Ghee, the plainest "do not touch" the scene can carry. */
+WW.tex('hz-alert', 36, 36, (c) => {
+  c.lineJoin = 'round';
+  const tri = () => { c.beginPath(); c.moveTo(18, 4); c.lineTo(34, 31); c.lineTo(2, 31); c.closePath(); };
+  c.strokeStyle = DR_LIGHT; c.lineWidth = 6; tri(); c.stroke();
+  c.fillStyle = DR_FILL; tri(); c.fill();
+  c.strokeStyle = DR; c.lineWidth = 2.2; tri(); c.stroke();
+  c.fillStyle = '#fff7f3';
+  rr(c, 16.4, 12, 3.2, 10, 1.6); c.fill();
+  c.beginPath(); c.arc(18, 26.4, 1.9, 0, 7); c.fill();
 });
 
 /* ================================================================
