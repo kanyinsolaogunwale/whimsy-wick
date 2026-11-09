@@ -1,8 +1,10 @@
 name: Deploy to GitHub Pages
 
+# Manual only. Pushing game code should not deploy anything, and the Pages
+# site is not enabled yet, so every push-triggered run failed at
+# actions/configure-pages. Run this by hand from the Actions tab once Pages
+# is switched to Source: GitHub Actions.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
