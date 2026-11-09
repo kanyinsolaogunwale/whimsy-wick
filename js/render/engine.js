@@ -186,22 +186,17 @@ WW.Engine = (canvas) => {
     const G = WW.Physics.GROUND_Y;
     const shadowE = WW.tex('hz-shadow', 100, 20, () => {});
     const shadow = (x, w) => sprite(shadowE, w, 12, x, G + 1, -0.3);
-    /* red warning kit for the hazards that crash on contact */
-    const dangerE = WW.tex('hz-danger-line', 120, 18, () => {});
+    /* caution badge for the hazards that crash on contact */
     const alertE = WW.tex('hz-alert', 36, 36, () => {});
     for (const h of cfg.world.hazards) {
       if (h.t === 'flour') {
         shadow(h.x + 46, 96);
-        /* a flour pile is a wall, and it crashes on contact: red footprint
-         * on the counter plus an alert badge over the top of the pile */
-        sprite(dangerE, 108, 16, h.x + 46, G + 5, 0.06);
+        /* a flour pile is a wall, and it crashes on contact: alert badge
+         * over the top of the pile */
         sprite(alertE, 22, 22, h.x + 46, G + 62, 0.7);
         sprite(WW.tex('hz-flour', 96, 40, () => {}), 92, 40, h.x + 46, G + 20, -0.2);
       } else if (h.t === 'pin') {
         h.px = h.px ?? h.x + h.range / 2;
-        /* the whole patrol stretch is deadly, so the red footprint spans
-         * the full swing, not just where the pin happens to be */
-        sprite(dangerE, h.range + 52, 16, h.x + h.range / 2, G + 5, 0.06);
         const sh = shadow(h.px, 110);
         const m = sprite(WW.tex('hz-pin', 130, 62, () => {}), 128, 61, h.px, G + 41, 0.4);
         const warn = sprite(alertE, 24, 24, h.px, G + 86, 0.72);
