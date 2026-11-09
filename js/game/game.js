@@ -69,7 +69,7 @@ WW.createGame = (canvas) => {
      * level told them to avoid */
     const sparks = cfg.sparks.map(x => {
       const y = sparkY(x, plat);
-      return { x: WW.storyPickupX(x, hazards, y, cfg.length, 13), y, got: false };
+      return { x: WW.storyPickupX(x, hazards, y, cfg.length, 15), y, got: false };
     });
     const gems = (cfg.gems || []).map(x => ({ x, y: gemY(x, plat), got: false, kind: 'gem' }));
     /* Cook & Learn: the level's recipe + typed ingredient pickups */
@@ -180,18 +180,25 @@ WW.createGame = (canvas) => {
     factsQueue = null;
     const rng = WW.rng((Date.now() >>> 10) % 99991);
     const L = 26000;    const hazards = WW.generateEndless(L, rng).map(normHaz);
-    const sparks = WW.generateEndlessSparks(L, rng).map(x => ({ x, y: 34 + Math.floor(Math.abs(Math.sin(x * 0.017)) * 190), got: false }));
-    const gems = WW.generateEndlessGems(L, rng).map(x => ({ x, y: gemY(x, []), got: false, kind: 'gem' }));
+    /* endless pickups run through the same hazard clearance as story ones:
+     * a coin must never sit on a flour pile or inside a pin's swing */
+    const sparks = WW.generateEndlessSparks(L, rng).map(x => {
+      const y = 34 + Math.floor(Math.abs(Math.sin(x * 0.017)) * 190);
+      return { x: WW.storyPickupX(x, hazards, y, L, 15), y, got: false };
+    });
+    const gems = WW.generateEndlessGems(L, rng).map(x => {
+      const y = gemY(x, []);
+      return { x: WW.storyPickupX(x, hazards, y, L, 17), y, got: false, kind: 'gem' };
+    });
     /* every ingredient kind takes one ride in the endless run: all 13 kinds
      * laid on an even ladder from the start so a full run can bank the set */
     const kinds = Object.keys(WW.INGREDIENTS);
     const ingFrom = 1200, ingStep = (L - ingFrom - 1100) / (kinds.length - 1);
-    const ingredients = kinds.map((k, i) => ({
-      x: Math.round(ingFrom + i * ingStep),
-      k,
-      y: 60 + Math.round(Math.abs(Math.sin((ingFrom + i * ingStep) * 0.005)) * 130),
-      got: false,
-    }));
+    const ingredients = kinds.map((k, i) => {
+      const x0 = Math.round(ingFrom + i * ingStep);
+      const y = 60 + Math.round(Math.abs(Math.sin(x0 * 0.005)) * 130);
+      return { x: WW.storyPickupX(x0, hazards, y, L, 22), k, y, got: false };
+    });
     world = {
       length: L, platforms: [], hazards, sparks, gems, ingredients,
       goal: null, t: 0,

@@ -630,7 +630,7 @@ WW.tex('hz-flour', 96, 40, (c) => {
     }
   };
   // outline pass: stroke the whole silhouette, then fill over the inner lines
-  c.strokeStyle = DR; c.lineWidth = HZW * 1.6; c.lineJoin = 'round';
+  c.strokeStyle = HZ; c.lineWidth = HZW * 1.6; c.lineJoin = 'round';
   puff(); c.stroke();
   c.fillStyle = '#ffffff'; puff(); c.fill();
   // shading so the pile has volume against the cream counter
@@ -646,16 +646,19 @@ WW.tex('hz-flour', 96, 40, (c) => {
 
 WW.tex('hz-pin', 130, 62, (c) => {
   c.lineJoin = 'round';
-  // original rolling-pin colours kept, red outline only: a pin can't be landed on
+  // cocoa outline only: the pin keeps its kitchen colours
   c.fillStyle = '#e39a4f'; rr(c, 14, 18, 100, 28, 14); c.fill();
-  c.strokeStyle = DR; c.lineWidth = HZW; rr(c, 14, 18, 100, 28, 14); c.stroke();
+  c.strokeStyle = HZ; c.lineWidth = HZW; rr(c, 14, 18, 100, 28, 14); c.stroke();
   c.fillStyle = '#f2c48b'; rr(c, 22, 22, 84, 8, 4); c.fill();
+  /* handles inset 4u from each canvas edge so both rounded ends and their
+   * outlines draw in full; the old left handle sat at x=0 and its stroke was
+   * clipped flat by the canvas boundary */
   c.fillStyle = '#7a4a22';
-  rr(c, 0, 24, 20, 16, 8); c.fill();
-  c.strokeStyle = DR; c.lineWidth = HZW * 0.8; rr(c, 0, 24, 20, 16, 8); c.stroke();
+  rr(c, 4, 24, 20, 16, 8); c.fill();
+  c.strokeStyle = HZ; c.lineWidth = HZW * 0.8; rr(c, 4, 24, 20, 16, 8); c.stroke();
   c.fillStyle = '#7a4a22';
-  rr(c, 108, 24, 20, 16, 8); c.fill();
-  c.strokeStyle = DR; rr(c, 108, 24, 20, 16, 8); c.stroke();
+  rr(c, 106, 24, 20, 16, 8); c.fill();
+  c.strokeStyle = HZ; c.lineWidth = HZW * 0.8; rr(c, 106, 24, 20, 16, 8); c.stroke();
   c.strokeStyle = 'rgba(122,74,34,.75)'; c.lineWidth = 2.4;
   for (const x of [40, 62, 84]) { c.beginPath(); c.moveTo(x, 21); c.lineTo(x, 43); c.stroke(); }
 });

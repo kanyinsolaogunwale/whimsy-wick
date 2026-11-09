@@ -237,19 +237,26 @@ WW.storyPageX = (x, hazards = [], length = 2600) => {
  * ---------------------------------------------------------------- */
 const HAZ_TOP = { flour: 40, pin: 34, fan: 90 };   // height of each danger zone
 const PICK_PAD = 16;                               // keep the art clear of the edge
+const PICK_VPAD = 8;                               // and clear of the danger's top edge
 WW.storyPickupX = (x, hazards = [], y = 0, length = 2600, r = 14) => {
   const min = 160, max = Math.max(min, length - 160);
   const spans = hazards
-    .filter(h => HAZ_TOP[h.t] !== undefined && y - r < HAZ_TOP[h.t])
+    .filter(h => HAZ_TOP[h.t] !== undefined && y - r < HAZ_TOP[h.t] + PICK_VPAD)
     .map(hazardFootprint)
-    .map(([a, b]) => [a - PICK_PAD, b + PICK_PAD]);
+    /* the pad clears the hazard edge AND the pickup's own art, or a wide
+     * pickup still overlaps by the difference between r and the pad */
+    .map(([a, b]) => [a - PICK_PAD - r, b + PICK_PAD + r]);
   const inside = (v) => spans.some(([a, b]) => v > a && v < b);
   if (!spans.length || !inside(x)) return x;
   /* step out to whichever edge of the blocked stretch is closer */
   const candidates = spans.flat()
     .filter(v => v >= min && v <= max && !inside(v))
     .sort((p, q) => Math.abs(p - x) - Math.abs(q - x));
-  return Math.round(candidates.length ? candidates[0] : Math.max(min, Math.min(max, x)));
+  if (candidates.length) return Math.round(candidates[0]);
+  /* every edge landed inside another stretch: walk clear to the right */
+  let v = Math.round(x);
+  while (inside(v) && v < max) v++;
+  return Math.min(max, v);
 };
 
 /* ----------------------------------------------------------------
